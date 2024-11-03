@@ -17,6 +17,7 @@ from .inverter_model_spec import EntitySpec
 from .inverter_model_spec import ModbusAddressesSpec
 from .inverter_model_spec import ModbusAddressSpec
 from .modbus_battery_sensor import ModbusBatterySensorDescription
+from .modbus_fault_sensor import BMS_FAULTS
 from .modbus_fault_sensor import H3_PRO_FAULTS
 from .modbus_fault_sensor import STANDARD_FAULTS
 from .modbus_fault_sensor import FaultSet
@@ -1359,6 +1360,22 @@ def _inverter_entities() -> Iterable[EntityFactory]:
             ModbusAddressesSpec(holding=[39067, 39068, 39069], models=Inv.H3_PRO),
         ],
         fault_set=H3_PRO_FAULTS,
+    )
+
+    def _bms_fault_code(addresses: list[ModbusAddressesSpec], fault_set: FaultSet) -> EntityFactory:
+        return ModbusFaultSensorDescription(
+            key="bms_fault_code",
+            addresses=addresses,
+            fault_set=fault_set,
+            name="BMS Fault Code",
+            icon="mdi:alert-circle-outline",
+        )
+
+    yield _bms_fault_code(
+        addresses=[
+            ModbusAddressesSpec(holding=[31117, 31118, 31119], models=Inv.H3_SET),
+        ],
+        fault_set=BMS_FAULTS,
     )
 
     yield ModbusInverterStateSensorDescription(
