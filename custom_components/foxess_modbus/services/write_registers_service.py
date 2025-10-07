@@ -11,7 +11,7 @@ from homeassistant.helpers import config_validation as cv
 
 from ..const import DOMAIN
 from ..modbus_controller import ModbusController
-from ..vendor.pymodbus import ModbusIOException
+from pymodbus.exceptions import ModbusIOException
 from .utils import get_controller_from_friendly_name_or_device_id
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)

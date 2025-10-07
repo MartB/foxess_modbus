@@ -20,15 +20,16 @@ from ..const import SERIAL
 from ..const import TCP
 from ..const import UDP
 from ..inverter_adapters import InverterAdapter
-from ..vendor.pymodbus import ModbusResponse
-from ..vendor.pymodbus import ModbusRtuFramer
-from ..vendor.pymodbus import ModbusSerialClient
-from ..vendor.pymodbus import ModbusSocketFramer
-from ..vendor.pymodbus import ModbusUdpClient
-from ..vendor.pymodbus import ReadHoldingRegistersResponse
-from ..vendor.pymodbus import ReadInputRegistersResponse
-from ..vendor.pymodbus import WriteMultipleRegistersResponse
-from ..vendor.pymodbus import WriteSingleRegisterResponse
+from pymodbus.pdu import ModbusPDU
+from pymodbus.client import ModbusSerialClient, ModbusUdpClient
+from pymodbus.pdu.register_message import (
+    ReadHoldingRegistersRequest,
+    ReadHoldingRegistersResponse,
+    ReadInputRegistersResponse,
+    WriteMultipleRegistersResponse,
+    WriteSingleRegisterResponse
+)
+
 from .custom_modbus_tcp_client import CustomModbusTcpClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,19 +40,19 @@ T = TypeVar("T")
 _CLIENTS: dict[str, dict[str, Any]] = {
     SERIAL: {
         "client": ModbusSerialClient,
-        "framer": ModbusRtuFramer,
+        "framer": "rtu",
     },
     TCP: {
         "client": CustomModbusTcpClient,
-        "framer": ModbusSocketFramer,
+        "framer": "socket",
     },
     UDP: {
         "client": ModbusUdpClient,
-        "framer": ModbusSocketFramer,
+        "framer": "socket",
     },
     RTU_OVER_TCP: {
         "client": CustomModbusTcpClient,
-        "framer": ModbusRtuFramer,
+        "framer": "rtu",
     },
 }
 
@@ -72,16 +73,19 @@ class ModbusClient:
 
         client = _CLIENTS[protocol]
 
-        # Delaying for a second after establishing a connection seems to help the inverter stability,
-        # see https://github.com/nathanmarlor/foxess_modbus/discussions/132
         config = {
             **config,
             "framer": client["framer"],
-            "delay_on_connect": 1 if adapter.connection_type == ConnectionType.LAN else None,
             "retries": _NUM_RETRIES,
             # See https://github.com/nathanmarlor/foxess_modbus/discussions/792
-            "retry_on_empty": True,
+            # "retry_on_empty": True, removed in later pymodbus versions
         }
+
+        # Only add delay_on_connect for clients that support it
+        if client["client"] in (CustomModbusTcpClient,):
+            # Delaying for a second after establishing a connection seems to help the inverter stability,
+            # see https://github.com/nathanmarlor/foxess_modbus/discussions/132
+            config["delay_on_connect"] = 1 if adapter.connection_type == ConnectionType.LAN else None
 
         # If our custom PosixPollSerial hack is supported, use that. This uses poll rather than select, which means we
         # don't break when there are more than 1024 fds. See #457.
@@ -114,17 +118,17 @@ class ModbusClient:
         if register_type == RegisterType.HOLDING:
             response = await self._async_pymodbus_call(
                 self._client.read_holding_registers,
-                start_address,
-                num_registers,
-                slave,
+                address=start_address,
+                count=num_registers,
+                device_id=slave,
             )
             expected_response_type = ReadHoldingRegistersResponse
         elif register_type == RegisterType.INPUT:
             response = await self._async_pymodbus_call(
                 self._client.read_input_registers,
-                start_address,
-                num_registers,
-                slave,
+                address=start_address,
+                count=num_registers,
+                device_id=slave,
             )
             expected_response_type = ReadInputRegistersResponse
         else:
@@ -162,20 +166,19 @@ class ModbusClient:
         """Write registers"""
         expected_response_type: Type[Any]
         if len(register_values) > 1:
-            register_values = [int(i) for i in register_values]
             response = await self._async_pymodbus_call(
                 self._client.write_registers,
                 register_address,
-                register_values,
-                slave,
+                values=[int(v) for v in register_values],
+                device_id=slave,
             )
             expected_response_type = WriteMultipleRegistersResponse
         else:
             response = await self._async_pymodbus_call(
                 self._client.write_register,
                 register_address,
-                int(register_values[0]),
-                slave,
+                value=int(register_values[0]),
+                device_id=slave,
             )
             expected_response_type = WriteSingleRegisterResponse
 
@@ -200,7 +203,7 @@ class ModbusClient:
                 response,
             )
 
-    async def _async_pymodbus_call(self, call: Callable[..., T], *args: Any, auto_connect: bool = True) -> T:
+    async def _async_pymodbus_call(self, call: Callable[..., T], *args: Any, auto_connect: bool = True, **kwargs: Any) -> T:
         """Convert async to sync pymodbus call."""
 
         def _call() -> T:
@@ -210,7 +213,7 @@ class ModbusClient:
             if auto_connect and not self._client.connected:
                 self._client.connect()
             # If the connection failed, this call will throw an appropriate error
-            return call(*args)
+            return call(*args, **kwargs)
 
         async with self._lock:
             result = await self._hass.async_add_executor_job(_call)
@@ -229,7 +232,7 @@ class ModbusClient:
 class ModbusClientFailedError(Exception):
     """Raised when the ModbusClient fails to read/write"""
 
-    def __init__(self, message: str, client: ModbusClient, response: ModbusResponse | Exception) -> None:
+    def __init__(self, message: str, client: ModbusClient, response: ModbusPDU | Exception) -> None:
         super().__init__(f"{message} from {client}: {response}")
         self.message = message
         self.client = client

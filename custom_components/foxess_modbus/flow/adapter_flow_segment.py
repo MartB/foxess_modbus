@@ -21,8 +21,7 @@ from ..inverter_adapters import ADAPTERS
 from ..inverter_adapters import InverterAdapter
 from ..inverter_adapters import InverterAdapterType
 from ..modbus_controller import ModbusController
-from ..vendor.pymodbus import ConnectionException
-from ..vendor.pymodbus import ModbusIOException
+from pymodbus.exceptions import ConnectionException, ModbusIOException
 from .flow_handler_mixin import FlowHandlerMixin
 from .flow_handler_mixin import ValidationFailedError
 from .inverter_data import InverterData

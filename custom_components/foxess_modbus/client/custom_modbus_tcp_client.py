@@ -5,8 +5,8 @@ import time
 from typing import Any
 from typing import cast
 
-from ..vendor.pymodbus import ConnectionException
-from ..vendor.pymodbus import ModbusTcpClient
+from pymodbus.exceptions import ConnectionException
+from pymodbus.client import ModbusTcpClient
 
 _LOGGER = logging.getLogger(__name__)
 

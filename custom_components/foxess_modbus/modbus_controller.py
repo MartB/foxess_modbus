@@ -37,9 +37,8 @@ from .const import MAX_READ
 from .inverter_profiles import INVERTER_PROFILES
 from .inverter_profiles import InverterModelConnectionTypeProfile
 from .remote_control_manager import RemoteControlManager
-from .vendor.pymodbus import ConnectionException
-from .vendor.pymodbus import ExceptionResponse
-from .vendor.pymodbus import ModbusExceptions
+from pymodbus.exceptions import ConnectionException
+from pymodbus.pdu import ExceptionResponse
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -487,7 +486,7 @@ class ModbusController(EntityController, UnloadController):
         def _is_illegal_address(ex: ModbusClientFailedError) -> bool:
             return (
                 isinstance(ex.response, ExceptionResponse)
-                and ex.response.exception_code == ModbusExceptions.IllegalAddress
+                and ex.response.exception_code == ExceptionResponse.ILLEGAL_ADDRESS
             )
 
         read_values: list[tuple[int, Iterable[int | None]]] = []
