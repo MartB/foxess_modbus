@@ -23,7 +23,6 @@ from ..inverter_adapters import InverterAdapter
 from pymodbus.pdu import ModbusPDU
 from pymodbus.client import ModbusSerialClient, ModbusUdpClient
 from pymodbus.pdu.register_message import (
-    ReadHoldingRegistersRequest,
     ReadHoldingRegistersResponse,
     ReadInputRegistersResponse,
     WriteMultipleRegistersResponse,
