@@ -1,24 +1,17 @@
 """Select"""
 
 import logging
-from dataclasses import dataclass
-from dataclasses import field
-from typing import Any
-from typing import Callable
-from typing import cast
+from dataclasses import dataclass, field
+from typing import Any, Callable, cast, List
 
-from homeassistant.components.number import NumberEntity
-from homeassistant.components.number import NumberEntityDescription
-from homeassistant.components.number import NumberMode
+from homeassistant.components.number import NumberEntity, NumberEntityDescription, NumberMode
 from homeassistant.const import Platform
 from homeassistant.helpers.entity import Entity
 
 from ..common.entity_controller import EntityController
-from ..common.types import Inv
-from ..common.types import RegisterType
+from ..common.types import Inv, RegisterType
 from .base_validator import BaseValidator
-from .entity_factory import ENTITY_DESCRIPTION_KWARGS
-from .entity_factory import EntityFactory
+from .entity_factory import ENTITY_DESCRIPTION_KWARGS, EntityFactory
 from .inverter_model_spec import ModbusAddressSpec
 from .modbus_entity_mixin import ModbusEntityMixin
 
@@ -45,8 +38,10 @@ class ModbusNumberDescription(NumberEntityDescription, EntityFactory):  # type: 
         inverter_model: Inv,
         register_type: RegisterType,
     ) -> Entity | None:
-        address = self._address_for_inverter_model(self.address, inverter_model, register_type)
-        return ModbusNumber(controller, self, address) if address is not None else None
+        addresses = self._addresses_for_inverter_model(self.address, inverter_model, register_type)
+        if addresses is None:
+            return None
+        return ModbusNumber(controller, self, addresses)
 
     def serialize(self, inverter_model: Inv, register_type: RegisterType) -> dict[str, Any] | None:
         addresses = self._addresses_for_inverter_model(self.address, inverter_model, register_type)
@@ -63,34 +58,44 @@ class ModbusNumberDescription(NumberEntityDescription, EntityFactory):  # type: 
 
 
 class ModbusNumber(ModbusEntityMixin, NumberEntity):
-    """Number class"""
+    """Number class supporting single or multiple Modbus registers (little-endian)."""
 
     def __init__(
         self,
         controller: EntityController,
         entity_description: ModbusNumberDescription,
-        address: int,
+        addresses: int | List[int],
     ) -> None:
         """Initialize the sensor."""
-
         self._controller = controller
         self.entity_description = entity_description
-        self._address = address
+        self._addresses = [addresses] if isinstance(addresses, int) else list(addresses)
         self.entity_id = self._get_entity_id(Platform.NUMBER)
 
     @property
     def native_value(self) -> int | float | None:
-        """Return the value reported by the sensor."""
-        entity_description = cast(ModbusNumberDescription, self.entity_description)
-        value: float | int | None = self._controller.read(self._address, signed=False)
-        original = value
-        if value is None:
+        desc = cast(ModbusNumberDescription, self.entity_description)
+
+        # Read value(s)
+        values = self._controller.read(self._addresses, signed=False)
+        if values is None:
             return None
-        if entity_description.scale is not None:
-            value = value * entity_description.scale
-        if entity_description.post_process is not None:
-            value = entity_description.post_process(float(value))
-        if not self._validate(entity_description.validate, value, original):
+
+        # Normalize to list
+        if isinstance(values, int):
+            values = [values]
+
+        # Combine little-endian
+        value = sum((v & 0xFFFF) << (16 * i) for i, v in enumerate(values))
+        original = value
+
+        # Apply scale and post-processing
+        if desc.scale is not None:
+            value *= desc.scale
+        if desc.post_process is not None:
+            value = desc.post_process(float(value))
+
+        if not self._validate(desc.validate, value, original):
             return None
 
         return value
@@ -100,23 +105,26 @@ class ModbusNumber(ModbusEntityMixin, NumberEntity):
         return cast(ModbusNumberDescription, self.entity_description).mode
 
     async def async_set_native_value(self, value: float) -> None:
-        entity_description = cast(ModbusNumberDescription, self.entity_description)
-        if (
-            self.entity_description.native_min_value is not None
-            and self.entity_description.native_max_value is not None
-        ):
-            value = max(
-                self.entity_description.native_min_value,
-                min(self.entity_description.native_max_value, value),
-            )
+        desc = cast(ModbusNumberDescription, self.entity_description)
 
-        if entity_description.scale is not None:
-            value = value / entity_description.scale
+        # Clamp to min/max
+        if desc.native_min_value is not None and desc.native_max_value is not None:
+            value = max(desc.native_min_value, min(desc.native_max_value, value))
+
+        # Apply inverse scale
+        if desc.scale is not None:
+            value = value / desc.scale
 
         int_value = int(round(value))
 
-        await self._controller.write_register(self._address, int_value)
+        # Write single or multiple registers (little-endian)
+        if len(self._addresses) == 1:
+            await self._controller.write_register(self._addresses[0], int_value)
+        else:
+            # Split into 16-bit words little-endian
+            words = [(int_value >> (16 * i)) & 0xFFFF for i in range(len(self._addresses))]
+            await self._controller.write_registers(self._addresses[0], words)
 
     @property
     def addresses(self) -> list[int]:
-        return [self._address]
+        return self._addresses
