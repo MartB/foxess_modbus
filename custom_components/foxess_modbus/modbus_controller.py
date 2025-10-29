@@ -1,8 +1,8 @@
 """Modbus controller"""
 
+import asyncio
 import logging
 import re
-import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -99,17 +99,6 @@ class InvalidRegisterRanges:
     def __str__(self) -> str:
         return ", ".join(f"[{x.start, x.count}]" for x in self._ranges)
 
-
-@contextmanager
-def _acquire_nonblocking(lock: threading.Lock) -> Iterator[bool]:
-    locked = lock.acquire(False)
-    try:
-        yield locked
-    finally:
-        if locked:
-            lock.release()
-
-
 class ModbusController(EntityController, UnloadController):
     """Class to manage forecast retrieval"""
 
@@ -133,7 +122,7 @@ class ModbusController(EntityController, UnloadController):
         self._slave = slave
         self._poll_rate = poll_rate
         self._max_read = max_read
-        self._refresh_lock = threading.Lock()
+        self._refresh_lock = asyncio.Lock()
         self._num_failed_poll_attempts = 0
         # To start, we're neither connected nor disconnected
         self._connection_state = ConnectionState.INITIAL
@@ -281,17 +270,16 @@ class ModbusController(EntityController, UnloadController):
     async def _refresh(self, _time: datetime) -> None:
         """Refresh modbus data"""
         # Make sure that we don't do two refreshes at the same time, if one is too slow
-        with _acquire_nonblocking(self._refresh_lock) as acquired:
-            if not acquired:
-                _LOGGER.warning(
-                    "Aborting refresh of %s %s as a previous refresh is still in progress. Is your poll rate '%s' too "
-                    "high?",
-                    self._client,
-                    self._slave,
-                    self._poll_rate,
-                )
-                return
+        if self._refresh_lock.locked():
+            _LOGGER.warning(
+                "Aborting refresh of %s %s as a previous refresh is still in progress. Is your poll rate '%s' too high?",
+                self._client,
+                self._slave,
+                self._poll_rate,
+            )
+            return
 
+        async with self._refresh_lock:
             exception: Exception | None = None
             try:
                 read_values = await self._read_all_registers()
