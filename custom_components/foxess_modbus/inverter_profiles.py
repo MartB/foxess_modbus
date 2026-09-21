@@ -20,6 +20,7 @@ from .const import INVERTER_CONN
 from .const import INVERTER_VERSION
 from .entities.charge_period_descriptions import CHARGE_PERIODS
 from .entities.entity_descriptions import ENTITIES
+from .entities.entity_factory import EntityFactory
 from .entities.modbus_charge_period_config import ModbusChargePeriodInfo
 from .entities.modbus_remote_control_config import ModbusRemoteControlAddressConfig
 from .entities.remote_control_description import REMOTE_CONTROL_DESCRIPTION
@@ -160,14 +161,17 @@ class InverterModelConnectionTypeProfile:
     def get_inv_for_version(self, version: Version | None) -> Inv:
         # Used for pytests
 
-        # Remember that self._versions is a map of maximum supported manager version (or None to support the max
-        # firmware version) -> Inv for that version
-        if version is None:
-            return self.versions[None]
+        # Remember that self.versions is a map of maximum supported manager version (or None to support the max
+        # firmware version) -> Inv for that version. The result is cumulative: a firmware gets its own Inv plus
+        # every Inv below it, so it keeps matching the older register specs and only overrides what changed
+        thresholds = sorted(v for v in self.versions if v is not None)
+        matched = next((v for v in thresholds if version < v), None) if version is not None else None
 
-        versions = sorted(self.versions.items(), reverse=True)
-        matched_version = next((x for x in versions if x[0] <= version), versions[0])  # type: ignore[operator]
-        return matched_version[1]
+        result = Inv(0)
+        for threshold, inv in self.versions.items():
+            if matched is None or (threshold is not None and not matched < threshold):
+                result |= inv
+        return result
 
     def overlaps_invalid_range(self, start_address: int, end_address: int) -> bool:
         """Determines whether the given inclusive address range overlaps any invalid address ranges"""
@@ -187,6 +191,25 @@ class InverterModelConnectionTypeProfile:
         """Create all of the entities of the given type which support this inverter/connection combination"""
 
         result = []
+        inv = self._get_inv(controller)
+
+        # An Inv is cumulative, so a model can match several descriptions which share a key: a spec
+        # written for an older firmware still matches a newer one. Home Assistant derives the unique id
+        # from the key, so only one of them may be created - pick the description covering the most
+        # recent applicable version rather than whichever happens to be declared first.
+        winners: dict[str, EntityFactory] = {}
+        scores: dict[str, tuple[int, int]] = {}
+        for entity_factory in ENTITIES:
+            if entity_factory.entity_type != entity_type:
+                continue
+            key = getattr(entity_factory, "key", None)
+            if key is None:
+                continue
+            score = entity_factory.match_score(inv, self.register_type)
+            if score is not None and (key not in scores or score > scores[key]):
+                scores[key], winners[key] = score, entity_factory
+
+        claimed_keys: set[str] = set()
 
         for entity_factory in ENTITIES:
             if (
@@ -196,11 +219,17 @@ class InverterModelConnectionTypeProfile:
                 continue
             if entity_factory.entity_type != entity_type:
                 continue
+            key = getattr(entity_factory, "key", None)
+            # Anything match_score couldn't rank falls back to first-wins, so nothing is ever dropped
+            if key is not None and (
+                winners[key] is not entity_factory if key in winners else key in claimed_keys
+            ):
+                continue
 
-            entity = entity_factory.create_entity_if_supported(
-                controller, self._get_inv(controller), self.register_type
-            )
+            entity = entity_factory.create_entity_if_supported(controller, inv, self.register_type)
             if entity is not None:
+                if key is not None:
+                    claimed_keys.add(key)
                 result.append(entity)
 
         return result

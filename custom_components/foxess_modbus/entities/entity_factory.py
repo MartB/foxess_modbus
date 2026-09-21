@@ -28,6 +28,15 @@ class EntityFactoryMetaclass(FrozenOrThawed, type(ABC)):  # type: ignore
 ENTITY_DESCRIPTION_KWARGS = {"frozen": True}
 
 
+def _specificity(spec: InverterModelSpec) -> int:
+    """Sort key: the fewer models a spec covers, the more specific it is.
+
+    An Inv is cumulative, so a model can match both a broad family spec and a narrow "this version differs"
+    one. Sorting by this means the narrowest wins.
+    """
+    return spec.models.value.bit_count()
+
+
 class EntityFactory(ABC, metaclass=EntityFactoryMetaclass):  # type: ignore
     """Factory which can create entities"""
 
@@ -54,6 +63,33 @@ class EntityFactory(ABC, metaclass=EntityFactoryMetaclass):  # type: ignore
     def serialize(self, inverter_model: Inv, register_type: RegisterType) -> dict[str, Any] | None:
         """Serialize to a dict, used for snapshot testing."""
 
+    def _match_specs(self) -> list[InverterModelSpec]:
+        """The specs which decide whether this description applies, whatever the subclass calls them"""
+        for attr in ("addresses", "address", "models", "period_start_address"):
+            value = getattr(self, attr, None)
+            if isinstance(value, (list, tuple)):
+                specs = [x for x in value if isinstance(x, InverterModelSpec)]
+                if specs:
+                    return specs
+        return []
+
+    def match_score(self, inverter_model: Inv, register_type: RegisterType) -> tuple[int, int] | None:
+        """How well this description fits the given model, or None if it doesn't apply at all.
+
+        An Inv is cumulative, so a spec written for an older firmware still matches a newer one, and
+        several descriptions can end up sharing a key. Rank by the most recent model bit a spec covers,
+        then by how narrowly it's scoped, so the newest applicable description wins rather than whichever
+        happens to be declared first.
+        """
+        best: tuple[int, int] | None = None
+        for spec in self._match_specs():
+            if spec.addresses_for_inverter_model(register_type=register_type, models=inverter_model) is None:
+                continue
+            score = ((inverter_model & spec.models).value.bit_length(), -spec.models.value.bit_count())
+            if best is None or score > best:
+                best = score
+        return best
+
     def _supports_inverter_model(
         self,
         address_specs: Sequence[InverterModelSpec],
@@ -62,14 +98,10 @@ class EntityFactory(ABC, metaclass=EntityFactoryMetaclass):  # type: ignore
     ) -> bool:
         """Helper to determine whether this entity description supports the given inverter model and register type"""
 
-        result = False
-        for spec in address_specs:
-            addresses = spec.addresses_for_inverter_model(register_type=register_type, models=inverter_model)
-            if addresses is not None:
-                # We shouldn't get more than one spec which matches
-                assert not result, f"{self}: more than one address spec defined for ({inverter_model}, {register_type})"
-                result = True
-        return result
+        return any(
+            spec.addresses_for_inverter_model(register_type=register_type, models=inverter_model) is not None
+            for spec in address_specs
+        )
 
     def _address_for_inverter_model(
         self,
@@ -82,21 +114,15 @@ class EntityFactory(ABC, metaclass=EntityFactoryMetaclass):  # type: ignore
         set of InverterModelSpec which was given to the entity description. Returns None if this entity is not supported
         on the model/connection type combination.
 
-        This will assert if the InverterModelSpec gives more than one address, or more than one member in address_specs
-        matches.
+        If more than one spec matches, the most specific one wins (see _specificity).
         """
 
-        result: int | None = None
-        for spec in address_specs:
+        for spec in sorted(address_specs, key=_specificity):
             addresses = spec.addresses_for_inverter_model(register_type=register_type, models=inverter_model)
-            if addresses is not None:
-                assert len(addresses) == 1, f"{self}: != 1 addresses defined for ({inverter_model}, {register_type})"
-                # We shouldn't get more than one spec which matches
-                assert result is None, (
-                    f"{self}: more than one address spec defined for ({inverter_model}, {register_type})"
-                )
-                result = addresses[0]
-        return result
+            if addresses and len(addresses) == 1:
+                return addresses[0]
+
+        return None
 
     def _addresses_for_inverter_model(
         self,
@@ -108,16 +134,12 @@ class EntityFactory(ABC, metaclass=EntityFactoryMetaclass):  # type: ignore
         set of which was given to the entity description. Returns None if this entity is not supported
         on the model/connection type combination.
 
-        This will assert if more than one member in address_specs matches.
+        If more than one spec matches, the most specific one wins (see _specificity).
         """
 
-        result: list[int] | None = None
-        for spec in address_specs:
+        for spec in sorted(address_specs, key=_specificity):
             addresses = spec.addresses_for_inverter_model(register_type=register_type, models=inverter_model)
             if addresses is not None:
-                # We shouldn't get more than one spec which matches
-                assert result is None, (
-                    f"{self}: more than one address spec defined for ({inverter_model}, {register_type})"
-                )
-                result = addresses
-        return result
+                return addresses
+
+        return None

@@ -146,17 +146,18 @@ class OptionsHandler(FlowHandlerMixin, config_entries.OptionsFlow):
         # The last element will be None, which means "latest"
         for version in versions[:-1]:
             assert version is not None
-            # For the sake of clarity, we'll shown an exclusive range as the version one minor version below
-            # (We don't know whether that version ever actually existed, but that doesn't matter here)
+            # For the sake of clarity, we'll show an exclusive range as the version one minor version below.
+            # We store that too: get_inv_for_version treats the stored value as the user's actual firmware
+            # version, so storing the threshold itself would put them in the next band up
+            inclusive_end = Version(version.major, version.minor - 1)
             if prev_version is None:
                 label = f"Earlier than {version}"
             else:
-                inclusive_end = Version(version.major, version.minor - 1)
                 label = f"{inclusive_end}" if inclusive_end == prev_version else f"{prev_version} - {inclusive_end}"
 
-            version_options.append({"label": label, "value": str(version)})
+            version_options.append({"label": label, "value": str(inclusive_end)})
             prev_version = version
-        version_options.append({"label": f"{versions[-2]} and higher", "value": "latest"})  # hass can't cope with None
+        version_options.append({"label": f"{versions[-2]} and higher", "value": "latest"})
 
         schema_parts[vol.Required("version", default=options.get(INVERTER_VERSION, "latest"))] = selector(
             {

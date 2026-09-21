@@ -193,18 +193,23 @@ class ModbusRemoteControlFactory:
         register_type: RegisterType,
     ) -> ModbusRemoteControlAddressConfig | None:
         """
-        If the inverter model / connection type supports a charge period, fetches a ModbusChargePeriodAddressConfig
+        If the inverter model / connection type supports remote control, fetches a ModbusChargePeriodAddressConfig
         containing the register addresses involved. If not supported, returns None.
+
+        An Inv is cumulative, so several specs can match. Take the one covering the most recent version.
         """
 
-        result: ModbusRemoteControlAddressConfig | None = None
-        for address_spec in self.address_specs:
-            if inverter_model in address_spec.models:
-                address_config = address_spec.register_types.get(register_type)
-                if address_config is not None:
-                    assert result is None, (
-                        f"{self}: multiple remote control addresses defined for ({inverter_model}, {register_type})"
-                    )
+        best_spec: RemoteControlAddressSpec | None = None
+        best_overlap_depth = -1
 
-                    result = address_config
-        return result
+        for address_spec in self.address_specs:
+            if not bool(inverter_model & address_spec.models):
+                continue
+            if address_spec.register_types.get(register_type) is None:
+                continue
+            overlap_depth = (inverter_model & address_spec.models).value.bit_length()
+            if overlap_depth > best_overlap_depth:
+                best_overlap_depth = overlap_depth
+                best_spec = address_spec
+
+        return best_spec.register_types[register_type] if best_spec is not None else None

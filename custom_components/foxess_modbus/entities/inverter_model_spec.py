@@ -10,6 +10,19 @@ from ..common.types import RegisterType
 class InverterModelSpec(ABC):
     """Base class for specifications which describe which inverter models an entity supports"""
 
+    _models: Inv
+
+    @property
+    def models(self) -> Inv:
+        """The models this spec describes"""
+        return self._models
+
+    def _supports_model(self, models: Inv) -> bool:
+        # An overlap is enough: a cumulative model such as H3_PRE180 | H3_180 | H3_193 isn't contained in
+        # (say) Inv.H3_193, but the spec still describes it. Which of the overlapping specs wins is decided
+        # by specificity, in EntityFactory
+        return bool(models & self._models)
+
     @abstractmethod
     def address_type_map_for_inverter_model(self, models: Inv) -> dict[RegisterType, list[int] | None]:
         """
@@ -40,12 +53,12 @@ class ModbusAddressSpecBase(InverterModelSpec):
         self._models = models
 
     def address_type_map_for_inverter_model(self, models: Inv) -> dict[RegisterType, list[int] | None]:
-        if models not in self._models:
+        if not self._supports_model(models):
             return {}
         return self._addresses
 
     def addresses_for_inverter_model(self, *, register_type: RegisterType, models: Inv) -> list[int] | None:
-        if models not in self._models:
+        if not self._supports_model(models):
             return None
         return self._addresses.get(register_type)
 
@@ -94,9 +107,12 @@ class EntitySpec(InverterModelSpec):
         self._models = models
 
     def address_type_map_for_inverter_model(self, models: Inv) -> dict[RegisterType, list[int] | None]:
-        if models not in self._models:
+        if not self._supports_model(models):
             return {}
         return {x: None for x in self._register_types}
 
-    def addresses_for_inverter_model(self, register_type: RegisterType, models: Inv) -> list[int] | None:
-        return [] if register_type in self._register_types and models in self._models else None
+    def addresses_for_inverter_model(self, *, register_type: RegisterType, models: Inv) -> list[int] | None:
+        if not self._supports_model(models):
+            return None
+
+        return [] if register_type in self._register_types else None
