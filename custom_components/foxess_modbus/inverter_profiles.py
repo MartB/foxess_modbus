@@ -81,7 +81,7 @@ class SpecialRegisterConfig:
 H1_AC1_REGISTERS = SpecialRegisterConfig(invalid_register_ranges=[(11096, 39999)])
 # See https://github.com/nathanmarlor/foxess_modbus/discussions/503
 H3_REGISTERS = SpecialRegisterConfig(
-    invalid_register_ranges=[(41001, 41006), (41012, 41013), (41015, 41015)],
+    invalid_register_ranges=[(41001, 41006), (41015, 41015), (46515, 46600)],
     individual_read_register_ranges=[(41000, 41999)],
 )
 # H3_REGISTERS with an extra range, see https://github.com/nathanmarlor/foxess_modbus/issues/692
@@ -392,10 +392,14 @@ _INVERTER_PROFILES_LIST = [
         special_registers=H3_SMART_REGISTERS,
     ),
     # The H3 seems to use holding registers for everything
-    InverterModelProfile(InverterModel.H3, r"^H3-([\d\.]+)").add_connection_type(
+    InverterModelProfile(InverterModel.H3, r"^H3-([\d.]+)(?:-E)?").add_connection_type(
         ConnectionType.AUX,
         RegisterType.HOLDING,
-        versions={Version(1, 80): Inv.H3_PRE180, None: Inv.H3_180},
+        versions={
+            Version(1, 80): Inv.H3_PRE180,
+            Version(1, 93): Inv.H3_180,
+            None: Inv.H3_193,
+        },
         special_registers=H3_REGISTERS,
     ),
     InverterModelProfile(InverterModel.AC3, r"^AC3-([\d\.]+)").add_connection_type(

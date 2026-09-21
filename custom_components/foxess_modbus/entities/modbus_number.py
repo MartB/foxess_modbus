@@ -34,6 +34,7 @@ class ModbusNumberDescription(NumberEntityDescription, EntityFactory):  # type: 
     scale: float | None = None
     post_process: Callable[[float], float] | None = None
     validate: list[BaseValidator] = field(default_factory=list)
+    signed: bool = False
 
     @property
     def entity_type(self) -> type[Entity]:
@@ -59,6 +60,7 @@ class ModbusNumberDescription(NumberEntityDescription, EntityFactory):  # type: 
             "name": self.name,
             "addresses": addresses,
             "scale": self.scale,
+            "signed": self.signed,
         }
 
 
@@ -85,7 +87,7 @@ class ModbusNumber(ModbusEntityMixin, NumberEntity):
         if self._pending_value is not None:
             return self._pending_value
         entity_description = cast(ModbusNumberDescription, self.entity_description)
-        value: float | int | None = self._controller.read(self._addresses, signed=False)
+        value: float | int | None = self._controller.read(self._addresses, signed=entity_description.signed)
         original = value
         if value is None:
             return None
@@ -128,13 +130,18 @@ class ModbusNumber(ModbusEntityMixin, NumberEntity):
             if len(self._addresses) == 1:
                 await self._controller.write_register(self._addresses[0], int_value)
             else:
-                # I32: self._addresses follows read() convention: [low_word_reg, high_word_reg]
-                # write_registers(start, [v0, v1]) writes v0→start, v1→start+1
-                # so start from the high-word register (index 1) and write [hi, lo]
-                high_word_reg = self._addresses[1]
-                hi = (int_value >> 16) & 0xFFFF
-                lo = int_value & 0xFFFF
-                await self._controller.write_registers(high_word_reg, [hi, lo])
+                # addresses is ordered from lower-order bits to higher-order, which isn't necessarily
+                # ascending address order, so pair each address with its shift before sorting into write order
+                shifts = sorted(((addr, i * 16) for i, addr in enumerate(self._addresses)), key=lambda x: x[0])
+                addresses = [addr for addr, _ in shifts]
+                # & 0xFFFF keeps each word in the range ModbusController accepts
+                words = [(int_value >> shift) & 0xFFFF for _, shift in shifts]
+
+                if all(b == a + 1 for a, b in zip(addresses, addresses[1:])):
+                    await self._controller.write_registers(addresses[0], words)
+                else:
+                    for address, word in zip(addresses, words):
+                        await self._controller.write_register(address, word)
         finally:
             self._pending_value = None
 

@@ -4,7 +4,6 @@ from enum import Enum
 from enum import Flag
 from enum import IntEnum
 from enum import StrEnum
-from enum import auto
 from typing import TYPE_CHECKING
 from typing import Callable
 from typing import NotRequired
@@ -66,6 +65,25 @@ class InverterModel(StrEnum):
     EVO = "EVO"
 
 
+class _BitAllocator:
+    """
+    Drop-in replacement for auto() which returns actual ints, allowing | composition during Flag class body
+    execution.
+
+    Each instance maintains its own counter, so multiple Flag classes are fully isolated.
+    """
+
+    def __init__(self) -> None:
+        self._n = -1
+
+    def __call__(self) -> int:
+        self._n += 1
+        return 1 << self._n
+
+    def __repr__(self) -> str:
+        return f"_BitAllocator(next={self._n + 1})"
+
+
 class Inv(Flag):
     """
     An InverterModel and connection type (and, maybe in the future, things like manager version) are together mapped to
@@ -73,31 +91,40 @@ class Inv(Flag):
     address(es) and register type (Input, Holding) to use
     """
 
-    H1_LAN = auto()
-    H1_G1 = auto()
-    H1_G2_PRE144 = auto()
-    H1_G2_144 = auto()
+    _ignore_ = ["_b"]  # noqa: RUF012
+    _b = _BitAllocator()
+
+    H1_LAN = _b()
+    H1_G1 = _b()
+    H1_G2_PRE144 = _b()
+    H1_G2_144 = _b()
     H1_G2_SET = H1_G2_PRE144 | H1_G2_144
 
-    KH_PRE119 = auto()
-    KH_PRE133 = auto()
-    KH_133 = auto()
+    KH_PRE119 = _b()
+    KH_PRE133 = _b()
+    KH_133 = _b()
     KH_SET = KH_PRE119 | KH_PRE133 | KH_133
 
-    H3_PRE180 = auto()
-    H3_180 = auto()
-    AIO_H3_PRE101 = auto()
-    AIO_H3_101 = auto()
-    KUARA_H3 = auto()
-    H3_SET = H3_180 | H3_PRE180 | AIO_H3_101 | AIO_H3_PRE101 | KUARA_H3
+    H3_PRE180 = _b()
+    H3_180 = _b()
+    H3_193 = _b()
+    AIO_H3_PRE101 = _b()
+    AIO_H3_101 = _b()
+    KUARA_H3 = _b()
+    H3_SET = H3_PRE180 | H3_180 | H3_193 | AIO_H3_PRE101 | AIO_H3_101 | KUARA_H3
 
-    H3_PRO_PRE122 = auto()
-    H3_PRO_122 = auto()
-    H3_PRO_SET = H3_PRO_PRE122 | H3_PRO_122
+    H3_PRO_PRE122 = _b()
+    H3_PRO_122 = _b()
+    # H3 >= 1.93 speaks the Pro register map, so it's a member here and inherits every Pro register. The
+    # few registers which differ keep an explicit Inv.H3_193 spec, which wins on specificity
+    H3_PRO_SET = H3_PRO_PRE122 | H3_PRO_122 | H3_193
+    # ...but it's still H3 hardware, with two PV strings and one battery. Registers describing hardware only
+    # a real H3 Pro has (PV3+, the second and third BMS banks) use this instead
+    H3_PRO_HW = H3_PRO_SET & ~H3_193
 
-    H3_SMART = auto()
+    H3_SMART = _b()
 
-    EVO = auto()
+    EVO = _b()
 
     ALL = H1_LAN | H1_G1 | H1_G2_SET | KH_SET | H3_SET | H3_PRO_SET | H3_SMART | EVO
 

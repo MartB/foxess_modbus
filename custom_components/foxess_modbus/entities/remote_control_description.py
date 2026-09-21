@@ -10,6 +10,13 @@ _NORMAL_WORK_MODE_MAP = {
     WorkMode.BACK_UP: 2,
 }
 
+# The Pro work mode register (49203) is 1-based, unlike the normal one
+_PRO_WORK_MODE_MAP = {
+    WorkMode.SELF_USE: 1,
+    WorkMode.FEED_IN_FIRST: 2,
+    WorkMode.BACK_UP: 3,
+}
+
 REMOTE_CONTROL_DESCRIPTION = ModbusRemoteControlFactory(
     addresses=[
         RemoteControlAddressSpec(
@@ -105,25 +112,52 @@ REMOTE_CONTROL_DESCRIPTION = ModbusRemoteControlFactory(
                 pwr_limit_bat_up=None,
                 pv_voltages=[31000, 31003],
             ),
-            models=Inv.H3_SET & ~Inv.KUARA_H3 & ~Inv.AIO_H3_101 & ~Inv.AIO_H3_PRE101,
+            models=Inv.H3_PRE180 & ~Inv.KUARA_H3 & ~Inv.AIO_H3_101 & ~Inv.AIO_H3_PRE101,
         ),
         RemoteControlAddressSpec(
-            # The H3 doesn't support anything above 44005, and the active/reactive power regisers are 2 values
-            # The Kuara H3 doesn't support this, see https://github.com/nathanmarlor/foxess_modbus/issues/532
+            # H3 after 180 supports pwr_limit_bat_up
+            holding=ModbusRemoteControlAddressConfig(
+                remote_enable=44000,
+                timeout_set=44001,
+                active_power=[44003, 44002],
+                work_mode=41000,
+                work_mode_map=_NORMAL_WORK_MODE_MAP,
+                max_soc=41010,
+                invbatpower=[31036],
+                battery_soc=[31141],
+                pwr_limit_bat_up=[44012],
+                pv_voltages=[31000, 31003],
+            ),
+            models=Inv.H3_180,
+        ),
+        RemoteControlAddressSpec(
+            # H3 >= 1.93 uses the Pro remote control block (46xxx) and work mode register, not the legacy
+            # 41000. battery_soc and pv_voltages stay on the legacy registers, which still read fine here
             holding=ModbusRemoteControlAddressConfig(
                 remote_enable=46001,
                 timeout_set=46002,
                 active_power=[46004, 46003],
                 work_mode=49203,
-                work_mode_map={
-                    WorkMode.SELF_USE: 1,
-                    WorkMode.FEED_IN_FIRST: 2,
-                    WorkMode.BACK_UP: 3,
-                },
+                work_mode_map=_PRO_WORK_MODE_MAP,
+                max_soc=46610,
+                invbatpower=[39238, 39237],
+                battery_soc=[31141],
+                pwr_limit_bat_up=[46021, 46020],
+                pv_voltages=[31000, 31003],
+            ),
+            models=Inv.H3_193,
+        ),
+        RemoteControlAddressSpec(
+            holding=ModbusRemoteControlAddressConfig(
+                remote_enable=46001,
+                timeout_set=46002,
+                active_power=[46004, 46003],
+                work_mode=49203,
+                work_mode_map=_PRO_WORK_MODE_MAP,
                 max_soc=46610,
                 invbatpower=[39238, 39237],
                 battery_soc=[37612, 38310],
-                pwr_limit_bat_up=[46019, 46018],
+                pwr_limit_bat_up=[46021, 46020],
                 pv_voltages=[39070, 39072, 39074, 39076, 39078, 39080],
             ),
             models=Inv.H3_PRO_SET | Inv.H3_SMART,

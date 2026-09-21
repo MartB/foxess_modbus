@@ -13,6 +13,7 @@ from ..common.types import RegisterPollType
 from ..common.types import RegisterType
 from .entity_factory import ENTITY_DESCRIPTION_KWARGS
 from .entity_factory import EntityFactory
+from .inverter_model_spec import ModbusAddressesSpec
 from .inverter_model_spec import ModbusAddressSpec
 from .modbus_entity_mixin import ModbusEntityMixin
 
@@ -86,6 +87,73 @@ class ModbusVersionSensor(ModbusEntityMixin, SensorEntity):
     @property
     def addresses(self) -> list[int]:
         return [self._address]
+
+    @property
+    def register_poll_type(self) -> RegisterPollType:
+        return RegisterPollType.ON_CONNECTION
+
+
+@dataclass(kw_only=True, **ENTITY_DESCRIPTION_KWARGS)
+class ModbusProtocolVersionSensorDescription(SensorEntityDescription, EntityFactory):  # type: ignore[misc]
+    """Description for ModbusProtocolVersionSensor"""
+
+    addresses: list[ModbusAddressesSpec]
+
+    @property
+    def entity_type(self) -> type[Entity]:
+        return SensorEntity
+
+    def create_entity_if_supported(
+        self,
+        controller: EntityController,
+        inverter_model: Inv,
+        register_type: RegisterType,
+    ) -> Entity | None:
+        addresses = self._addresses_for_inverter_model(self.addresses, inverter_model, register_type)
+        return ModbusProtocolVersionSensor(controller, self, addresses) if addresses is not None else None
+
+    def serialize(self, inverter_model: Inv, register_type: RegisterType) -> dict[str, Any] | None:
+        addresses = self._addresses_for_inverter_model(self.addresses, inverter_model, register_type)
+        if addresses is None:
+            return None
+
+        return {
+            "type": "sensor",
+            "key": self.key,
+            "name": self.name,
+            "addresses": addresses,
+        }
+
+
+class ModbusProtocolVersionSensor(ModbusEntityMixin, SensorEntity):
+    """Exposes the inverter's 32-bit Fox modbus document version, e.g. V1.05.03.00
+
+    The bytes are BCD-style, so they're rendered in hex, the same as the is_hex version sensors above.
+    """
+
+    def __init__(
+        self,
+        controller: EntityController,
+        entity_description: ModbusProtocolVersionSensorDescription,
+        addresses: list[int],
+    ) -> None:
+        self._controller = controller
+        self.entity_description = entity_description
+        self._addresses = addresses
+        self.entity_id = self._get_entity_id(Platform.SENSOR)
+
+    @property
+    def native_value(self) -> str | None:
+        value = self._controller.read(self._addresses, signed=False)
+        if value is None:
+            return None
+
+        b0, b1, b2, b3 = ((value >> shift) & 0xFF for shift in (24, 16, 8, 0))
+        return f"V{b0:X}.{b1:02X}.{b2:02X}.{b3:02X}"
+
+    @property
+    def addresses(self) -> list[int]:
+        return list(self._addresses)
 
     @property
     def register_poll_type(self) -> RegisterPollType:
