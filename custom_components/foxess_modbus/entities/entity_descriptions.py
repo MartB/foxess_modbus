@@ -2887,6 +2887,60 @@ def _bms_entities() -> Iterable[EntityFactory]:
         ),
     )
 
+    # The envelope the BMS is asking the inverter to stay inside. The 2025 spec leaves 37613-37616 out of
+    # the BMS1 block, but 37615/37616 read back the same as the documented 31039/31040 (max charge/discharge
+    # current), which puts the pair above them as the voltage limits.
+    def _bms_limits() -> Iterable[EntityFactory]:
+        def _limit(key: str, address: int, name: str, unit: str, icon: str, limit: float) -> EntityFactory:
+            return ModbusBatterySensorDescription(
+                key=key,
+                addresses=[ModbusAddressesSpec(holding=[address], models=Inv.H3_PRO_SET | Inv.H3_SMART)],
+                bms_connect_state_address=BMS_CONNECT_STATE_ADDRESS,
+                name=name,
+                state_class=SensorStateClass.MEASUREMENT,
+                native_unit_of_measurement=unit,
+                scale=0.1,
+                round_to=0.1,
+                signed=False,
+                icon=icon,
+                validate=[Range(0, limit)],
+            )
+
+        yield _limit(
+            "bms_charge_voltage_max",
+            37613,
+            "BMS Max Charge Voltage",
+            "V",
+            "mdi:battery-arrow-up-outline",
+            1000,
+        )
+        yield _limit(
+            "bms_discharge_voltage_min",
+            37614,
+            "BMS Min Discharge Voltage",
+            "V",
+            "mdi:battery-arrow-down-outline",
+            1000,
+        )
+        yield _limit(
+            "bms_charge_current_max",
+            37615,
+            "BMS Max Charge Current",
+            "A",
+            "mdi:battery-arrow-up-outline",
+            500,
+        )
+        yield _limit(
+            "bms_discharge_current_max",
+            37616,
+            "BMS Max Discharge Current",
+            "A",
+            "mdi:battery-arrow-down-outline",
+            500,
+        )
+
+    yield from on_device(BATTERY, _bms_limits())
+
 
 def _configuration_entities() -> Iterable[EntityFactory]:
     yield ModbusWorkModeSelectDescription(

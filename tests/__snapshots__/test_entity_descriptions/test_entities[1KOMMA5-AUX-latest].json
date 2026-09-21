@@ -323,6 +323,46 @@
   },
   {
     "addresses": [
+      37615
+    ],
+    "key": "bms_charge_current_max",
+    "name": "BMS Max Charge Current",
+    "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      37613
+    ],
+    "key": "bms_charge_voltage_max",
+    "name": "BMS Max Charge Voltage",
+    "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      37616
+    ],
+    "key": "bms_discharge_current_max",
+    "name": "BMS Max Discharge Current",
+    "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      37614
+    ],
+    "key": "bms_discharge_voltage_min",
+    "name": "BMS Min Discharge Voltage",
+    "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       37632
     ],
     "key": "bms_kwh_remaining_1",
