@@ -28,6 +28,18 @@ H1_INVERTER_STATES = [
     "Unrecoverable Fault",
 ]
 
+H3_INVERTER_STATES = [
+    "Waiting",
+    "Checking",
+    "On Grid",
+    "Off Grid / EPS",
+    "Fault (4)",
+    "Fault (5)",
+    "Unknown (6)",
+    "Unknown (7)",
+    "Standby",
+]
+
 KH_INVERTER_STATES = [
     "Self Test",
     "Waiting",

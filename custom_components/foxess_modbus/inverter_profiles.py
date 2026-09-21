@@ -82,7 +82,7 @@ H1_AC1_REGISTERS = SpecialRegisterConfig(invalid_register_ranges=[(11096, 39999)
 # See https://github.com/nathanmarlor/foxess_modbus/discussions/503
 H3_REGISTERS = SpecialRegisterConfig(
     invalid_register_ranges=[(41001, 41006), (41015, 41015), (46515, 46600)],
-    individual_read_register_ranges=[(41000, 41999)],
+    individual_read_register_ranges=[(41000, 41999), (44002, 44004), (44007, 44014)],
 )
 # H3_REGISTERS with an extra range, see https://github.com/nathanmarlor/foxess_modbus/issues/692
 H3_PRO_REGISTERS = SpecialRegisterConfig(
