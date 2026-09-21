@@ -51,6 +51,12 @@ class ModbusRemoteControlAddressConfig:
     """Array of pvx_voltage addresses for PV strings"""
 
 
+def _cluster_capacity(controller: EntityController) -> int:
+    """Max force charge/discharge power (W) to allow: the whole cluster's capacity, or just this inverter's"""
+    manager = controller.remote_control_manager
+    return manager.cluster_inverter_capacity() if manager is not None else controller.inverter_capacity
+
+
 class RemoteControlAddressSpec:
     """
     Specifies the addresses involved in remote control, for a given list of inverter models
@@ -120,7 +126,7 @@ class ModbusRemoteControlFactory:
             key="force_charge_power",
             name="Force Charge Power",
             models=all_models,
-            native_max_value_callback=lambda x: -x.inverter_capacity,  # - to counteract -ve scale
+            native_max_value_callback=lambda x: -_cluster_capacity(x),  # - to counteract -ve scale
             mode=NumberMode.BOX,
             device_class=NumberDeviceClass.POWER,
             native_min_value=0.0,
@@ -141,7 +147,7 @@ class ModbusRemoteControlFactory:
             key="force_discharge_power",
             name="Force Discharge Power",
             models=all_models,
-            native_max_value_callback=lambda x: -x.inverter_capacity,  # - to counteract -ve scale
+            native_max_value_callback=lambda x: -_cluster_capacity(x),  # - to counteract -ve scale
             mode=NumberMode.BOX,
             device_class=NumberDeviceClass.POWER,
             native_min_value=0.0,

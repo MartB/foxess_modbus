@@ -150,12 +150,18 @@
         "data": {
           "round_sensor_values": "Round sensor values",
           "poll_rate": "Poll rate (seconds)",
-          "max_read": "Max read"
+          "max_read": "Max read",
+          "remote_control_role": "Remote control role (parallel systems)",
+          "remote_control_cluster": "Remote control cluster id",
+          "remote_control_fallback_work_mode": "Work mode after force charge/discharge"
         },
         "data_description": {
           "round_sensor_values": "Reduces Home Assistant database size by rounding and filtering sensor values",
           "poll_rate": "The default for your adapter type is {default_poll_rate} seconds. Leave empty to use the default",
-          "max_read": "The default for your adapter type is {default_max_read}. Leave empty to use the default. Warning: Look at the debug log for problems if you increase this!"
+          "max_read": "The default for your adapter type is {default_max_read}. Leave empty to use the default. Warning: Look at the debug log for problems if you increase this!",
+          "remote_control_role": "For parallel master/slave installs only. Set one inverter to 'Cluster master' and the others to 'Cluster slave' so the master sizes its force charge/discharge command from the combined battery limits of all inverters. Leave as 'Standalone' for single inverters.",
+          "remote_control_cluster": "Only for parallel master/slave installs with MORE THAN ONE cluster. A master links only with slaves sharing the same id. Leave at the default (1) for a single cluster.",
+          "remote_control_fallback_work_mode": "Master only. The work mode the inverter returns to when a force charge/discharge operation ends (e.g. force charge reaches max SoC). Default: Back-up."
         }
       }
     },

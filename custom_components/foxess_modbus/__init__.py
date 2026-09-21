@@ -34,6 +34,11 @@ from .const import MODBUS_SLAVE
 from .const import MODBUS_TYPE
 from .const import PLATFORMS
 from .const import POLL_RATE
+from .const import REMOTE_CONTROL_CLUSTER
+from .const import REMOTE_CONTROL_CLUSTER_DEFAULT
+from .const import REMOTE_CONTROL_ROLE
+from .const import REMOTE_CONTROL_ROLE_MASTER
+from .const import REMOTE_CONTROL_ROLE_SLAVE
 from .const import RTU_OVER_TCP
 from .const import SERIAL
 from .const import STARTUP_MESSAGE
@@ -43,12 +48,77 @@ from .const import UNIQUE_ID_PREFIX
 from .inverter_adapters import ADAPTERS
 from .inverter_profiles import inverter_connection_type_profile_from_config
 from .modbus_controller import ModbusController
+from .remote_control_manager import RemoteControlManager
 from .services import read_registers_service
 from .services import update_charge_period_service
 from .services import websocket_api
 from .services import write_registers_service
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
+
+
+def _link_remote_control_clusters(controllers: list[ModbusController]) -> None:
+    """Link each remote-control cluster's master to its slaves.
+
+    Only the master drives remote control: it sizes its single command from the combined battery limits of
+    the whole cluster, and its slaves keep their own managers disabled so they can't fight it. Inverters
+    left as 'standalone' (the default) aren't touched.
+    """
+
+    def prefix(controller: ModbusController) -> Any:
+        return controller.inverter_details.get(ENTITY_ID_PREFIX)
+
+    def manager_of(controller: ModbusController) -> RemoteControlManager | None:
+        manager = controller.remote_control_manager
+        if not isinstance(manager, RemoteControlManager):
+            _LOGGER.warning("%s doesn't support remote control, so can't be part of a cluster", prefix(controller))
+            return None
+        return manager
+
+    clusters: dict[str, dict[str, list[ModbusController]]] = {}
+    for controller in controllers:
+        role = controller.inverter_details.get(REMOTE_CONTROL_ROLE)
+        if role in (REMOTE_CONTROL_ROLE_MASTER, REMOTE_CONTROL_ROLE_SLAVE):
+            cluster_id = controller.inverter_details.get(REMOTE_CONTROL_CLUSTER, REMOTE_CONTROL_CLUSTER_DEFAULT)
+            cluster = clusters.setdefault(cluster_id, {REMOTE_CONTROL_ROLE_MASTER: [], REMOTE_CONTROL_ROLE_SLAVE: []})
+            cluster[role].append(controller)
+
+    for cluster_id, cluster in clusters.items():
+        masters = cluster[REMOTE_CONTROL_ROLE_MASTER]
+        slaves = [(x, manager_of(x)) for x in cluster[REMOTE_CONTROL_ROLE_SLAVE]]
+
+        if len(masters) > 1:
+            _LOGGER.warning(
+                "Cluster '%s' has more than one master (%s). Using the first",
+                cluster_id,
+                [prefix(x) for x in masters],
+            )
+
+        master_manager = manager_of(masters[0]) if masters else None
+        master_prefix = prefix(masters[0]) if master_manager is not None else None
+        if master_manager is None:
+            _LOGGER.warning("Cluster '%s' has no usable master, so its slaves are left disabled", cluster_id)
+
+        # Slaves are disabled whether or not the cluster has a master, so that they can't drive remote
+        # control on their own
+        slave_prefixes: list[Any] = []
+        for controller, manager in slaves:
+            if manager is None:
+                continue
+            manager.set_is_cluster_slave(True)
+            manager.cluster_info = {"role": "slave", "cluster": cluster_id, "master": master_prefix, "slaves": []}
+            if master_manager is not None:
+                master_manager.add_cluster_slave(manager)
+                slave_prefixes.append(prefix(controller))
+
+        if master_manager is not None:
+            master_manager.cluster_info = {
+                "role": "master",
+                "cluster": cluster_id,
+                "master": master_prefix,
+                "slaves": slave_prefixes,
+            }
+            _LOGGER.info("Remote control cluster '%s': master %s, slaves %s", cluster_id, master_prefix, slave_prefixes)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -114,6 +184,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             client = ModbusClient(hass, inverter[MODBUS_TYPE], adapter, params)
             clients[client_key] = client
         create_controller(client, inverter)
+
+    _link_remote_control_clusters(controllers)
 
     read_registers_service.register(hass, controllers)
     write_registers_service.register(hass, controllers)

@@ -1,5 +1,7 @@
 """Constants for foxess_modbus."""
 
+from typing import Any
+
 # Base component constants
 NAME = "foxess_modbus"
 DOMAIN = "foxess_modbus"
@@ -43,6 +45,30 @@ ADAPTER_ID = "adapter_id"
 ROUND_SENSOR_VALUES = "round_sensor_values"
 # Used as a key in the inverter config to indicate that the adapter was migrated from config version 1
 ADAPTER_WAS_MIGRATED = "adapter_was_migrated"
+
+# In a parallel installation only the master drives remote control, sizing its single command from the
+# combined battery limits of the whole cluster
+REMOTE_CONTROL_ROLE = "remote_control_role"
+REMOTE_CONTROL_ROLE_STANDALONE = "standalone"  # default: independent, unchanged behaviour
+REMOTE_CONTROL_ROLE_MASTER = "master"
+REMOTE_CONTROL_ROLE_SLAVE = "slave"
+
+# A master links only with slaves sharing this id, so several clusters can coexist in one config entry
+REMOTE_CONTROL_CLUSTER = "remote_control_cluster"
+REMOTE_CONTROL_CLUSTER_DEFAULT = "1"
+
+# Work mode the inverter returns to when a force charge/discharge ends, e.g. at max SoC
+REMOTE_CONTROL_FALLBACK_WORK_MODE = "remote_control_fallback_work_mode"
+REMOTE_CONTROL_FALLBACK_SELF_USE = "self_use"
+REMOTE_CONTROL_FALLBACK_FEED_IN_FIRST = "feed_in_first"
+REMOTE_CONTROL_FALLBACK_BACK_UP = "back_up"
+REMOTE_CONTROL_FALLBACK_DEFAULT = REMOTE_CONTROL_FALLBACK_BACK_UP
+
+
+def is_remote_control_slave(inverter_details: dict[str, Any]) -> bool:
+    """A slave has no remote control of its own, so mustn't expose force charge/discharge controls"""
+    return inverter_details.get(REMOTE_CONTROL_ROLE) == REMOTE_CONTROL_ROLE_SLAVE
+
 
 INVERTER_MODEL = "inverter_model"
 INVERTER_BASE = "inverter_base"

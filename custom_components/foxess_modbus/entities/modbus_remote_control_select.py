@@ -13,6 +13,7 @@ from ..common.entity_controller import EntityController
 from ..common.entity_controller import RemoteControlMode
 from ..common.types import Inv
 from ..common.types import RegisterType
+from ..const import is_remote_control_slave
 from .entity_factory import ENTITY_DESCRIPTION_KWARGS
 from .entity_factory import EntityFactory
 from .inverter_model_spec import EntitySpec
@@ -36,6 +37,8 @@ class ModbusRemoteControlSelectDescription(SelectEntityDescription, EntityFactor
         register_type: RegisterType,
     ) -> Entity | None:
         if not self._supports_inverter_model(self.models, inverter_model, register_type):
+            return None
+        if is_remote_control_slave(controller.inverter_details):
             return None
         return ModbusRemoteControlSelect(controller, self)
 

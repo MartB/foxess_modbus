@@ -80,6 +80,14 @@ class EntityRemoteControlManager(ABC):
     def max_soc(self, value: int | None) -> None:
         """Set a value to override the max_soc register, if any"""
 
+    @abstractmethod
+    def cluster_inverter_capacity(self) -> int:
+        """Combined inverter capacity (W) across the remote-control cluster.
+
+        The master's single command drives the whole cluster, so this is the sum
+        of the master and all its slaves. For a standalone inverter it's just its
+        own capacity."""
+
 
 class EntityController(ABC):
     """Interface given to entities to access the ModbusController"""

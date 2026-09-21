@@ -13,6 +13,17 @@ from ..const import INVERTERS
 from ..const import MAX_READ
 from ..const import MODBUS_TYPE
 from ..const import POLL_RATE
+from ..const import REMOTE_CONTROL_CLUSTER
+from ..const import REMOTE_CONTROL_CLUSTER_DEFAULT
+from ..const import REMOTE_CONTROL_FALLBACK_BACK_UP
+from ..const import REMOTE_CONTROL_FALLBACK_DEFAULT
+from ..const import REMOTE_CONTROL_FALLBACK_FEED_IN_FIRST
+from ..const import REMOTE_CONTROL_FALLBACK_SELF_USE
+from ..const import REMOTE_CONTROL_FALLBACK_WORK_MODE
+from ..const import REMOTE_CONTROL_ROLE
+from ..const import REMOTE_CONTROL_ROLE_MASTER
+from ..const import REMOTE_CONTROL_ROLE_SLAVE
+from ..const import REMOTE_CONTROL_ROLE_STANDALONE
 from ..const import ROUND_SENSOR_VALUES
 from ..inverter_adapters import ADAPTERS
 from ..inverter_profiles import Version
@@ -209,6 +220,25 @@ class OptionsHandler(FlowHandlerMixin, config_entries.OptionsFlow):
             else:
                 options.pop(MAX_READ, None)
 
+            role = user_input.get(REMOTE_CONTROL_ROLE, REMOTE_CONTROL_ROLE_STANDALONE)
+            if role == REMOTE_CONTROL_ROLE_STANDALONE:
+                options.pop(REMOTE_CONTROL_ROLE, None)
+            else:
+                options[REMOTE_CONTROL_ROLE] = role
+
+            # Only stored when it isn't the default, so single-cluster setups stay config-free
+            cluster = (user_input.get(REMOTE_CONTROL_CLUSTER) or "").strip()
+            if role == REMOTE_CONTROL_ROLE_STANDALONE or not cluster or cluster == REMOTE_CONTROL_CLUSTER_DEFAULT:
+                options.pop(REMOTE_CONTROL_CLUSTER, None)
+            else:
+                options[REMOTE_CONTROL_CLUSTER] = cluster
+
+            fallback = user_input.get(REMOTE_CONTROL_FALLBACK_WORK_MODE, REMOTE_CONTROL_FALLBACK_DEFAULT)
+            if role != REMOTE_CONTROL_ROLE_MASTER or fallback == REMOTE_CONTROL_FALLBACK_DEFAULT:
+                options.pop(REMOTE_CONTROL_FALLBACK_WORK_MODE, None)
+            else:
+                options[REMOTE_CONTROL_FALLBACK_WORK_MODE] = fallback
+
             return self._save_selected_inverter_options(options)
 
         schema_parts: dict[Any, Any] = {}
@@ -224,6 +254,50 @@ class OptionsHandler(FlowHandlerMixin, config_entries.OptionsFlow):
         ] = vol.Any(None, vol.All(int, vol.Range(min=1)))
         schema_parts[vol.Optional("max_read", description={"suggested_value": options.get(MAX_READ)})] = vol.Any(
             None, vol.All(int, vol.Range(min=1))
+        )
+
+        # In a parallel installation, exactly one inverter is the master and the rest are slaves
+        schema_parts[
+            vol.Required(
+                REMOTE_CONTROL_ROLE,
+                default=options.get(REMOTE_CONTROL_ROLE, REMOTE_CONTROL_ROLE_STANDALONE),
+            )
+        ] = selector(
+            {
+                "select": {
+                    "mode": "dropdown",
+                    "options": [
+                        {"label": "Standalone (default)", "value": REMOTE_CONTROL_ROLE_STANDALONE},
+                        {"label": "Cluster master", "value": REMOTE_CONTROL_ROLE_MASTER},
+                        {"label": "Cluster slave", "value": REMOTE_CONTROL_ROLE_SLAVE},
+                    ],
+                }
+            }
+        )
+
+        schema_parts[
+            vol.Optional(
+                REMOTE_CONTROL_CLUSTER,
+                description={"suggested_value": options.get(REMOTE_CONTROL_CLUSTER, REMOTE_CONTROL_CLUSTER_DEFAULT)},
+            )
+        ] = vol.Any(None, str)
+
+        schema_parts[
+            vol.Required(
+                REMOTE_CONTROL_FALLBACK_WORK_MODE,
+                default=options.get(REMOTE_CONTROL_FALLBACK_WORK_MODE, REMOTE_CONTROL_FALLBACK_DEFAULT),
+            )
+        ] = selector(
+            {
+                "select": {
+                    "mode": "dropdown",
+                    "options": [
+                        {"label": "Back-up (default)", "value": REMOTE_CONTROL_FALLBACK_BACK_UP},
+                        {"label": "Self Use", "value": REMOTE_CONTROL_FALLBACK_SELF_USE},
+                        {"label": "Feed-in First", "value": REMOTE_CONTROL_FALLBACK_FEED_IN_FIRST},
+                    ],
+                }
+            }
         )
 
         schema = vol.Schema(schema_parts)

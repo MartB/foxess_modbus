@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 from homeassistant.helpers.entity import Entity
 
@@ -6,6 +7,7 @@ from ..common.entity_controller import EntityController
 from ..common.entity_controller import RemoteControlMode
 from ..common.types import Inv
 from ..common.types import RegisterType
+from ..const import is_remote_control_slave
 from .entity_factory import ENTITY_DESCRIPTION_KWARGS
 from .modbus_select import ModbusSelect
 from .modbus_select import ModbusSelectDescription
@@ -37,8 +39,26 @@ class ModbusWorkModeSelect(ModbusSelect):
 
         self._prev_remote_control_mode: RemoteControlMode | None = None
 
-        if controller.remote_control_manager is not None:
+        # A slave doesn't drive remote control, so don't offer it Force Charge / Force Discharge
+        if controller.remote_control_manager is not None and not is_remote_control_slave(controller.inverter_details):
             self._attr_options.extend([_FORCE_CHARGE, _FORCE_DISCHARGE])
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        # None unless this inverter is part of a cluster
+        manager = self._controller.remote_control_manager
+        info = getattr(manager, "cluster_info", None) if manager is not None else None
+        if not info:
+            return None
+        attrs: dict[str, Any] = {
+            "remote_control_role": info.get("role"),
+            "remote_control_cluster": info.get("cluster"),
+        }
+        if info.get("role") == "master":
+            attrs["cluster_slaves"] = info.get("slaves")
+        else:
+            attrs["cluster_master"] = info.get("master")
+        return attrs
 
     @property
     def current_option(self) -> str | None:
