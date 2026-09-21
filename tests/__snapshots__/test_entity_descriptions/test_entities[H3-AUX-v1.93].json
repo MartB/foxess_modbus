@@ -1690,6 +1690,17 @@
   },
   {
     "addresses": [
+      39058,
+      39057
+    ],
+    "key": "inverter_max_apparent_power",
+    "name": "Maximum Apparent Power",
+    "scale": null,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       41014
     ],
     "key": "inverter_on_off",
@@ -1699,6 +1710,17 @@
       "0": "Off",
       "1": "On"
     }
+  },
+  {
+    "addresses": [
+      39054,
+      39053
+    ],
+    "key": "inverter_rated_power",
+    "name": "Rated Power",
+    "scale": null,
+    "signed": false,
+    "type": "sensor"
   },
   {
     "addresses": [
@@ -1968,6 +1990,16 @@
   },
   {
     "addresses": [
+      39052
+    ],
+    "key": "mppt_count",
+    "name": "MPPT Count",
+    "scale": null,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       44030
     ],
     "key": "mppt_switchoff",
@@ -2106,6 +2138,16 @@
       "pv2_power"
     ],
     "type": "lambda"
+  },
+  {
+    "addresses": [
+      39051
+    ],
+    "key": "pv_string_count",
+    "name": "PV String Count",
+    "scale": null,
+    "signed": false,
+    "type": "sensor"
   },
   {
     "addresses": [

@@ -242,6 +242,46 @@ def _identity_entities() -> Iterable[EntityFactory]:
     # Pro hardware doesn't mirror the count into the 310xx block, so ask the BMS itself
     yield _module_count([ModbusAddressesSpec(holding=[37032], models=Inv.H3_PRO_HW | Inv.H3_SMART)])
 
+    # The inverter's nameplate. inverter_capacity is currently parsed out of the model name string, which
+    # these agree with: an H3-12.0-E reports 12000 W.
+    yield ModbusSensorDescription(
+        key="inverter_rated_power",
+        addresses=[ModbusAddressesSpec(holding=[39054, 39053], models=Inv.H3_PRO_SET | Inv.H3_SMART)],
+        name="Rated Power",
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement="W",
+        signed=False,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        poll_type=RegisterPollType.ON_CONNECTION,
+        validate=[Min(0)],
+    )
+    yield ModbusSensorDescription(
+        key="inverter_max_apparent_power",
+        addresses=[ModbusAddressesSpec(holding=[39058, 39057], models=Inv.H3_PRO_SET | Inv.H3_SMART)],
+        name="Maximum Apparent Power",
+        device_class=SensorDeviceClass.APPARENT_POWER,
+        native_unit_of_measurement="VA",
+        signed=False,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        poll_type=RegisterPollType.ON_CONNECTION,
+        validate=[Min(0)],
+    )
+
+    def _count(key: str, name: str, address: int, icon: str) -> EntityFactory:
+        return ModbusSensorDescription(
+            key=key,
+            addresses=[ModbusAddressesSpec(holding=[address], models=Inv.H3_PRO_SET | Inv.H3_SMART)],
+            name=name,
+            signed=False,
+            icon=icon,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            poll_type=RegisterPollType.ON_CONNECTION,
+            validate=[Range(0, 16)],
+        )
+
+    yield _count("pv_string_count", "PV String Count", 39051, "mdi:solar-panel")
+    yield _count("mppt_count", "MPPT Count", 39052, "mdi:solar-panel-large")
+
 
 def _pv_entities() -> Iterable[EntityFactory]:
     def _pv_voltage(key: str, addresses: list[ModbusAddressesSpec], name: str) -> EntityFactory:
