@@ -5,8 +5,8 @@ import time
 from typing import Any
 from typing import cast
 
-from ..vendor.pymodbus import ConnectionException
-from ..vendor.pymodbus import ModbusTcpClient
+from pymodbus.client import ModbusTcpClient
+from pymodbus.exceptions import ConnectionException
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class CustomModbusTcpClient(ModbusTcpClient):
     def connect(self) -> bool:
         was_connected = self.socket is not None
         if not was_connected:
-            _LOGGER.debug("Connecting to %s", self.params)
+            _LOGGER.debug("Connecting to %s", self.comm_params)
         is_connected = cast(bool, super().connect())
         # pymodbus doesn't disable Nagle's algorithm. This slows down reads quite substantially as the
         # TCP stack waits to see if we're going to send anything else. Disable it ourselves.
@@ -34,9 +34,9 @@ class CustomModbusTcpClient(ModbusTcpClient):
 
     # Replacement of ModbusTcpClient to use poll rather than select, see
     # https://github.com/nathanmarlor/foxess_modbus/issues/275
-    def recv(self, size: int) -> Any:
+    def recv(self, size: int | None) -> Any:
         """Read data from the underlying descriptor."""
-        super(ModbusTcpClient, self).recv(size)
+        super(ModbusTcpClient, self).recv(size)  # type: ignore[safe-super]
         if not self.socket:
             raise ConnectionException(str(self))
 
@@ -48,9 +48,9 @@ class CustomModbusTcpClient(ModbusTcpClient):
         # is received or timeout is expired.
         # If timeout expires returns the read data, also if its length is
         # less than the expected size.
-        self.socket.setblocking(0)
+        self.socket.setblocking(False)
 
-        timeout = self.comm_params.timeout_connect
+        timeout = self.comm_params.timeout_connect or 0
 
         # If size isn't specified read up to 4096 bytes at a time.
         if size is None:
@@ -69,8 +69,10 @@ class CustomModbusTcpClient(ModbusTcpClient):
         # fail
         poll.register(self.socket, select.POLLIN)
         while recv_size > 0:
-            poll_res = poll.poll(end - time_)
+            # poll.poll() takes a timeout in milliseconds, whereas select.select() took seconds
+            remaining_ms = max(0, (end - time_) * 1000)
             # We expect a single-element list if this succeeds, or an empty list if it timed out
+            poll_res = poll.poll(remaining_ms)
             if len(poll_res) > 0:
                 if (recv_data := self.socket.recv(recv_size)) == b"":
                     return self._handle_abrupt_socket_close(size, data, time.time() - time_)
@@ -78,9 +80,10 @@ class CustomModbusTcpClient(ModbusTcpClient):
                 data_length += len(recv_data)
             time_ = time.time()
 
-            # If size isn't specified continue to read until timeout expires.
-            if size:
-                recv_size = size - data_length
+            # If size isn't specified, return whatever the first poll gave us.
+            if not size:
+                break
+            recv_size = size - data_length
 
             # Timeout is reduced also if some data has been received in order
             # to avoid infinite loops when there isn't an expected response
@@ -95,13 +98,14 @@ class CustomModbusTcpClient(ModbusTcpClient):
     def _check_read_buffer(self) -> bytes | None:
         """Check read buffer."""
         time_ = time.time()
-        end = time_ + self.params.timeout
+        end = time_ + self.comm_params.timeout_connect
         data = None
 
         assert self.socket is not None
         poll = select.poll()
         poll.register(self.socket, select.POLLIN)
-        poll_res = poll.poll(end - time_)
+        remaining_ms = max(0, (end - time_) * 1000)
+        poll_res = poll.poll(remaining_ms)
         if len(poll_res) > 0:
             data = self.socket.recv(1024)
         return data

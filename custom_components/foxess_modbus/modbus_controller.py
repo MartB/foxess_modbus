@@ -18,6 +18,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.issue_registry import IssueSeverity
+from pymodbus.constants import ExcCodes
+from pymodbus.exceptions import ConnectionException
+from pymodbus.pdu import ExceptionResponse
 
 from .client.modbus_client import ModbusClient
 from .client.modbus_client import ModbusClientFailedError
@@ -37,9 +40,6 @@ from .const import MAX_READ
 from .inverter_profiles import INVERTER_PROFILES
 from .inverter_profiles import InverterModelConnectionTypeProfile
 from .remote_control_manager import RemoteControlManager
-from .vendor.pymodbus import ConnectionException
-from .vendor.pymodbus import ExceptionResponse
-from .vendor.pymodbus import ModbusExceptions
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -487,7 +487,7 @@ class ModbusController(EntityController, UnloadController):
         def _is_illegal_address(ex: ModbusClientFailedError) -> bool:
             return (
                 isinstance(ex.response, ExceptionResponse)
-                and ex.response.exception_code == ModbusExceptions.IllegalAddress
+                and ex.response.exception_code == ExcCodes.ILLEGAL_ADDRESS
             )
 
         read_values: list[tuple[int, Iterable[int | None]]] = []
