@@ -23,6 +23,8 @@ from ..const import INVERTER_CONN
 from ..const import INVERTER_MODEL
 from ..const import UNIQUE_ID_PREFIX
 from .base_validator import BaseValidator
+from .devices import SubDevice
+from .devices import device_for_key
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,6 +55,38 @@ def _add_entity_id_prefix(key: str, inv_details: dict[str, Any]) -> str:
         key = f"{entity_id_prefix}_{key}"
 
     return slugify(key, separator="_")
+
+
+def device_info(inv_details: dict[str, Any], device: SubDevice | None = None) -> DeviceInfo:
+    """Device registry entry for the inverter, or for one of the sub-devices hanging off it"""
+
+    friendly_name = inv_details[FRIENDLY_NAME]
+    inv_model = inv_details[INVERTER_MODEL]
+    conn_type = inv_details[INVERTER_CONN]
+
+    # services/utils.py relies on the order of entries here. Update that if you update this!
+    # Sub-devices extend the inverter's identifier rather than replacing it, which keeps the friendly name
+    # in the same position, so a service call can target one of them and still find the inverter.
+    inverter_identifier = (DOMAIN, inv_model, conn_type, friendly_name)
+
+    def _name(base: str) -> str:
+        return f"{base} ({friendly_name})" if friendly_name else base
+
+    if device is None:
+        return DeviceInfo(
+            identifiers={inverter_identifier},  # type: ignore[arg-type]
+            name=_name("FoxESS - Modbus"),
+            model=f"{inv_model} - {conn_type}",
+            manufacturer="FoxESS",
+        )
+
+    parent = inverter_identifier + (device.parent.path if device.parent is not None else ())
+    return DeviceInfo(
+        identifiers={inverter_identifier + device.path},  # type: ignore[arg-type]
+        name=_name(f"FoxESS - {device.name}"),
+        manufacturer="FoxESS",
+        via_device=parent,  # type: ignore[typeddict-item]
+    )
 
 
 def _create_unique_id(key: str, inv_details: dict[str, Any]) -> str:
@@ -97,23 +131,14 @@ class ModbusEntityMixin(
         return _create_unique_id(self.entity_description.key, self._controller.inverter_details)
 
     @property
+    def sub_device(self) -> "SubDevice | None":
+        """The sub-device this entity sits on, or None for the inverter itself"""
+        return device_for_key(self.entity_description.key)
+
+    @property
     def device_info(self) -> DeviceInfo:
         """Return device specific attributes."""
-        friendly_name = self._controller.inverter_details[FRIENDLY_NAME]
-        inv_model = self._controller.inverter_details[INVERTER_MODEL]
-        conn_type = self._controller.inverter_details[INVERTER_CONN]
-        if friendly_name:
-            attr_name = f"FoxESS - Modbus ({friendly_name})"
-        else:
-            attr_name = "FoxESS - Modbus"
-
-        return DeviceInfo(
-            # services/utils.py relies on the order of entries here. Update that if you update this!
-            identifiers={(DOMAIN, inv_model, conn_type, friendly_name)},  # type: ignore
-            name=attr_name,
-            model=f"{inv_model} - {conn_type}",
-            manufacturer="FoxESS",
-        )
+        return device_info(self._controller.inverter_details, self.sub_device)
 
     @property
     def name(self) -> str | None:

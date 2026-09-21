@@ -153,6 +153,16 @@
   },
   {
     "addresses": [
+      37032
+    ],
+    "key": "battery_module_count",
+    "name": "Battery Module Count",
+    "scale": null,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       37612
     ],
     "key": "battery_soc_1",
@@ -367,86 +377,6 @@
     "name": "BMS Max Discharge Power",
     "scale": null,
     "signed": true,
-    "type": "sensor"
-  },
-  {
-    "addresses": [
-      37097,
-      37098,
-      37099,
-      37100,
-      37101,
-      37102,
-      37103,
-      37104
-    ],
-    "chars_per_register": 2,
-    "key": "bms_slave_1_serial_number",
-    "name": "BMS Slave 1 Serial Number",
-    "type": "sensor"
-  },
-  {
-    "addresses": [
-      37113,
-      37114,
-      37115,
-      37116,
-      37117,
-      37118,
-      37119,
-      37120
-    ],
-    "chars_per_register": 2,
-    "key": "bms_slave_2_serial_number",
-    "name": "BMS Slave 2 Serial Number",
-    "type": "sensor"
-  },
-  {
-    "addresses": [
-      37129,
-      37130,
-      37131,
-      37132,
-      37133,
-      37134,
-      37135,
-      37136
-    ],
-    "chars_per_register": 2,
-    "key": "bms_slave_3_serial_number",
-    "name": "BMS Slave 3 Serial Number",
-    "type": "sensor"
-  },
-  {
-    "addresses": [
-      37145,
-      37146,
-      37147,
-      37148,
-      37149,
-      37150,
-      37151,
-      37152
-    ],
-    "chars_per_register": 2,
-    "key": "bms_slave_4_serial_number",
-    "name": "BMS Slave 4 Serial Number",
-    "type": "sensor"
-  },
-  {
-    "addresses": [
-      37161,
-      37162,
-      37163,
-      37164,
-      37165,
-      37166,
-      37167,
-      37168
-    ],
-    "chars_per_register": 2,
-    "key": "bms_slave_5_serial_number",
-    "name": "BMS Slave 5 Serial Number",
     "type": "sensor"
   },
   {

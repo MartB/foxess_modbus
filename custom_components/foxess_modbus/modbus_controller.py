@@ -126,6 +126,7 @@ class ModbusController(EntityController, UnloadController):
         # To start, we're neither connected nor disconnected
         self._connection_state = ConnectionState.INITIAL
         self._current_connection_error: str | None = None
+        self._force_connection_read = False
         # Any ranges of registers which we've detected that we can't read
         self._detected_invalid_ranges = InvalidRegisterRanges()
 
@@ -473,15 +474,13 @@ class ModbusController(EntityController, UnloadController):
     # List of (start address, [read values starting at that address])
     async def _read_all_registers(self) -> list[tuple[int, Iterable[int | None]]]:
         def _is_illegal_address(ex: ModbusClientFailedError) -> bool:
-            return (
-                isinstance(ex.response, ExceptionResponse)
-                and ex.response.exception_code == ExcCodes.ILLEGAL_ADDRESS
-            )
+            return isinstance(ex.response, ExceptionResponse) and ex.response.exception_code == ExcCodes.ILLEGAL_ADDRESS
 
         read_values: list[tuple[int, Iterable[int | None]]] = []
 
         read_ranges = self._create_read_ranges(
-            self._max_read, is_initial_connection=self._connection_state != ConnectionState.CONNECTED
+            self._max_read,
+            is_initial_connection=self._force_connection_read or self._connection_state != ConnectionState.CONNECTED,
         )
         for start_address, num_reads in read_ranges:
             _LOGGER.debug(
@@ -541,7 +540,19 @@ class ModbusController(EntityController, UnloadController):
                         # Record None at this address, so the sensor gets an 'Unavailable' value
                         read_values.append((address, [None]))
 
+        # Only once every range has been read: a poll which threw partway through hasn't honoured the
+        # request, so leave it set for the next one
+        self._force_connection_read = False
+
         return read_values
+
+    def request_connection_read(self) -> None:
+        """Ask the next poll to re-read the on-connection registers as well.
+
+        Entities discovered after the connection was established (the battery modules) would otherwise sit
+        unread until the next reconnection, since their registers are only polled on connection.
+        """
+        self._force_connection_read = True
 
     def register_modbus_entity(self, listener: ModbusControllerEntity) -> None:
         self._update_listeners.add(listener)

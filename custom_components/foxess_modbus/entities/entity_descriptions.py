@@ -16,6 +16,11 @@ from ..common.types import Inv
 from ..common.types import RegisterPollType
 from ..common.types import RegisterType
 from .charge_period_descriptions import CHARGE_PERIODS
+from .devices import BATTERY
+from .devices import BMS
+from .devices import SubDevice
+from .devices import assign_device
+from .devices import on_device
 from .entity_factory import EntityFactory
 from .inverter_model_spec import EntitySpec
 from .inverter_model_spec import ModbusAddressesSpec
@@ -156,7 +161,15 @@ def _identity_entities() -> Iterable[EntityFactory]:
     All read once per connection: none of them change while the inverter is running.
     """
 
-    def _serial(key: str, name: str, addresses: list[ModbusAddressesSpec], chars_per_register: int) -> EntityFactory:
+    def _serial(
+        key: str,
+        name: str,
+        addresses: list[ModbusAddressesSpec],
+        chars_per_register: int,
+        device: SubDevice | None = None,
+    ) -> EntityFactory:
+        if device is not None:
+            assign_device(key, device)
         return ModbusStringSensorDescription(
             key=key,
             addresses=addresses,
@@ -184,19 +197,13 @@ def _identity_entities() -> Iterable[EntityFactory]:
         "BMS Master Serial Number",
         [ModbusAddressesSpec(holding=list(range(37005, 37013)), models=Inv.H3_PRO_SET | Inv.H3_SMART)],
         chars_per_register=2,
+        device=BATTERY,
     )
-    # Slave 1 and 2 are in the spec; the table carries on at the same stride for the rest, which is how
-    # a stack of more than two modules reports itself.
-    for index in range(1, 6):
-        start = 37097 + 16 * (index - 1)
-        yield _serial(
-            f"bms_slave_{index}_serial_number",
-            f"BMS Slave {index} Serial Number",
-            [ModbusAddressesSpec(holding=list(range(start, start + 8)), models=Inv.H3_PRO_SET | Inv.H3_SMART)],
-            chars_per_register=2,
-        )
+    # The serial of each module in the stack is read too, but only once the inverter has said how many
+    # there are - see entities/battery_modules.py
 
     def _battery_rating(key: str, name: str, address: int, scale: float, unit: str, icon: str) -> EntityFactory:
+        assign_device(key, BATTERY)
         return ModbusSensorDescription(
             key=key,
             addresses=[ModbusAddressesSpec(holding=[address], models=Inv.H3_SET)],
@@ -217,16 +224,23 @@ def _identity_entities() -> Iterable[EntityFactory]:
     yield _battery_rating(
         "battery_design_energy", "Battery Design Energy", 31140, 0.01, "kWh", "mdi:battery-heart-variant"
     )
-    yield ModbusSensorDescription(
-        key="battery_module_count",
-        addresses=[ModbusAddressesSpec(holding=[31136], models=Inv.H3_SET)],
-        name="Battery Module Count",
-        signed=False,
-        icon="mdi:battery-sync",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        poll_type=RegisterPollType.ON_CONNECTION,
-        validate=[Min(0)],
-    )
+
+    def _module_count(addresses: list[ModbusAddressesSpec]) -> EntityFactory:
+        assign_device("battery_module_count", BATTERY)
+        return ModbusSensorDescription(
+            key="battery_module_count",
+            addresses=addresses,
+            name="Battery Module Count",
+            signed=False,
+            icon="mdi:battery-sync",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            poll_type=RegisterPollType.ON_CONNECTION,
+            validate=[Min(0)],
+        )
+
+    yield _module_count([ModbusAddressesSpec(holding=[31136], models=Inv.H3_SET)])
+    # Pro hardware doesn't mirror the count into the 310xx block, so ask the BMS itself
+    yield _module_count([ModbusAddressesSpec(holding=[37032], models=Inv.H3_PRO_HW | Inv.H3_SMART)])
 
 
 def _pv_entities() -> Iterable[EntityFactory]:
@@ -324,9 +338,7 @@ def _pv_entities() -> Iterable[EntityFactory]:
             # This is techincally a 32-bit register on the G2, but it doesn't appear to actually write the upper word,
             # which means that negative values are represented incorrectly (as 0x0000FFFF etc)
             ModbusAddressesSpec(holding=[39280], models=Inv.H1_G2_SET),
-            ModbusAddressesSpec(
-                holding=[39280, 39279], models=Inv.KH_133 | Inv.H3_PRO_SET | Inv.H3_SMART | Inv.EVO
-            ),
+            ModbusAddressesSpec(holding=[39280, 39279], models=Inv.KH_133 | Inv.H3_PRO_SET | Inv.H3_SMART | Inv.EVO),
             ModbusAddressesSpec(holding=[39330, 39329], models=Inv.H3_193),
         ],
         name="PV1 Power",
@@ -380,9 +392,7 @@ def _pv_entities() -> Iterable[EntityFactory]:
             # This is techincally a 32-bit register on the G2, but it doesn't appear to actually write the upper word,
             # which means that negative values are represented incorrectly (as 0x0000FFFF etc)
             ModbusAddressesSpec(holding=[39282], models=Inv.H1_G2_SET),
-            ModbusAddressesSpec(
-                holding=[39282, 39281], models=Inv.KH_133 | Inv.H3_PRO_SET | Inv.H3_SMART | Inv.EVO
-            ),
+            ModbusAddressesSpec(holding=[39282, 39281], models=Inv.KH_133 | Inv.H3_PRO_SET | Inv.H3_SMART | Inv.EVO),
             ModbusAddressesSpec(holding=[39334, 39333], models=Inv.H3_193),
         ],
         name="PV2 Power",
@@ -1488,7 +1498,7 @@ def _h3_current_voltage_power_entities() -> Iterable[EntityFactory]:
         r_addresses=[ModbusAddressesSpec(holding=[38841, 38840], models=Inv.H3_PRO_SET & ~Inv.H3_PRO_PRE122)],
         s_addresses=[ModbusAddressesSpec(holding=[38843, 38842], models=Inv.H3_PRO_SET & ~Inv.H3_PRO_PRE122)],
         t_addresses=[ModbusAddressesSpec(holding=[38845, 38844], models=Inv.H3_PRO_SET & ~Inv.H3_PRO_PRE122)],
-        scale=0.00001, # modbus scale: 1000
+        scale=0.00001,  # modbus scale: 1000
     )
     yield from _grid_ct_power_factor_set(
         addresses=[ModbusAddressesSpec(holding=[31081], models=Inv.H3_180)],
@@ -1808,6 +1818,9 @@ def _inverter_entities() -> Iterable[EntityFactory]:
         round_to=0.5,
         validate=[Range(-50, 100)],
     )
+    for key in ("bms_charge_rate", "bms_discharge_rate", "bms_cycle_count", "bms_watthours_total"):
+        assign_device(key, BATTERY)
+
     yield ModbusBatterySensorDescription(
         key="bms_charge_rate",
         addresses=[
@@ -2316,6 +2329,7 @@ def _inverter_entities() -> Iterable[EntityFactory]:
     )
 
     def _system_soc(addresses: list[ModbusAddressesSpec]) -> EntityFactory:
+        assign_device("system_soc", BATTERY)
         return ModbusBatterySensorDescription(
             key="system_soc",
             addresses=addresses,
@@ -2755,113 +2769,122 @@ def _bms_entities() -> Iterable[EntityFactory]:
             validate=[Min(0)],
         )
 
-    yield from _inner(
-        index=None,
-        bms_connect_state_address=BMS_CONNECT_STATE_ADDRESS,
-        batvolt=[
-            ModbusAddressesSpec(input=[11034], models=Inv.H1_G1 | Inv.KH_PRE119),
-            # H3 >= 1.93 reads these from the Pro BMS registers rather than the legacy 31034/31035 below
-            ModbusAddressesSpec(holding=[37609], models=Inv.H1_G2_144 | Inv.H3_193),
-            ModbusAddressesSpec(holding=[31034], models=Inv.H3_SET),
-        ],
-        bat_current=[
-            ModbusAddressesSpec(input=[11035], models=Inv.H1_G1 | Inv.KH_PRE119),
-            ModbusAddressesSpec(holding=[37610], models=Inv.H1_G2_144 | Inv.H3_193),
-            ModbusAddressesSpec(holding=[31035], models=Inv.H3_SET),
-        ],
-        battery_soc=[
-            ModbusAddressesSpec(input=[11036], models=Inv.H1_G1 | Inv.KH_PRE119),
-            ModbusAddressesSpec(
-                holding=[31024], models=Inv.H1_G1 | Inv.H1_LAN | Inv.H1_G2_SET | Inv.KH_PRE133 | Inv.KH_133
-            ),
-            ModbusAddressesSpec(holding=[31038], models=Inv.H3_SET),
-        ],
-        battery_soh=[
-            # Temporarily removed, see #756
-            # ModbusAddressesSpec(input=[11104], models=Inv.KH_PRE119),
-            ModbusAddressesSpec(holding=[37624], models=Inv.H1_G2_144 | Inv.KH_133),
-            ModbusAddressesSpec(holding=[31090], models=Inv.H3_180),
-            ModbusAddressesSpec(holding=[39423], models=Inv.EVO),
-        ],
-        battery_temp=[
-            ModbusAddressesSpec(input=[11038], models=Inv.H1_G1 | Inv.KH_PRE119),
-            ModbusAddressesSpec(
-                holding=[31023], models=Inv.H1_G1 | Inv.H1_LAN | Inv.H1_G2_SET | Inv.KH_PRE133 | Inv.KH_133
-            ),
-            ModbusAddressesSpec(holding=[31037], models=Inv.H3_SET),
-        ],
-        bms_cell_temp_high=[
-            ModbusAddressesSpec(input=[11043], models=Inv.H1_G1 | Inv.KH_PRE119),
-            ModbusAddressesSpec(holding=[37617], models=Inv.H1_G2_144 | Inv.KH_133),
-            ModbusAddressesSpec(holding=[31102], models=Inv.H3_180),
-        ],
-        bms_cell_temp_low=[
-            ModbusAddressesSpec(input=[11044], models=Inv.H1_G1 | Inv.KH_PRE119),
-            ModbusAddressesSpec(holding=[37618], models=Inv.H1_G2_144 | Inv.KH_133),
-            ModbusAddressesSpec(holding=[31103], models=Inv.H3_180),
-        ],
-        bms_cell_mv_high=[
-            ModbusAddressesSpec(input=[11045], models=Inv.H1_G1 | Inv.KH_PRE119),
-            ModbusAddressesSpec(holding=[37619], models=Inv.H1_G2_144 | Inv.KH_133),
-            ModbusAddressesSpec(holding=[31134], models=Inv.H3_180),
-        ],
-        bms_cell_mv_low=[
-            ModbusAddressesSpec(input=[11046], models=Inv.H1_G1 | Inv.KH_PRE119),
-            ModbusAddressesSpec(holding=[37620], models=Inv.H1_G2_144 | Inv.KH_133),
-            ModbusAddressesSpec(holding=[31135], models=Inv.H3_180),
-        ],
-        bms_kwh_remaining=[
-            ModbusAddressesSpec(input=[11037], models=Inv.H1_G1 | Inv.KH_PRE119),
-            ModbusAddressesSpec(holding=[37632], models=Inv.H1_G2_SET | Inv.KH_133),
-            ModbusAddressesSpec(holding=[31123], models=Inv.H3_180),
-        ],
-        # Pwr_limit_Bat_Up
-        bms_pwr_limit_discharge=[
-            ModbusAddressesSpec(holding=[44011], models=Inv.H3_SET),
-            ModbusAddressesSpec(holding=[46019, 46018], models=Inv.H3_PRO_SET | Inv.H3_SMART),
-        ],
-        # Pwr_limit_Bat_Dn
-        bms_pwr_limit_charge=[
-            ModbusAddressesSpec(holding=[44012], models=Inv.H3_SET),
-            ModbusAddressesSpec(holding=[46021, 46020], models=Inv.H3_PRO_SET | Inv.H3_SMART),
-        ],
+    yield from on_device(
+        BATTERY,
+        _inner(
+            index=None,
+            bms_connect_state_address=BMS_CONNECT_STATE_ADDRESS,
+            batvolt=[
+                ModbusAddressesSpec(input=[11034], models=Inv.H1_G1 | Inv.KH_PRE119),
+                # H3 >= 1.93 reads these from the Pro BMS registers rather than the legacy 31034/31035 below
+                ModbusAddressesSpec(holding=[37609], models=Inv.H1_G2_144 | Inv.H3_193),
+                ModbusAddressesSpec(holding=[31034], models=Inv.H3_SET),
+            ],
+            bat_current=[
+                ModbusAddressesSpec(input=[11035], models=Inv.H1_G1 | Inv.KH_PRE119),
+                ModbusAddressesSpec(holding=[37610], models=Inv.H1_G2_144 | Inv.H3_193),
+                ModbusAddressesSpec(holding=[31035], models=Inv.H3_SET),
+            ],
+            battery_soc=[
+                ModbusAddressesSpec(input=[11036], models=Inv.H1_G1 | Inv.KH_PRE119),
+                ModbusAddressesSpec(
+                    holding=[31024], models=Inv.H1_G1 | Inv.H1_LAN | Inv.H1_G2_SET | Inv.KH_PRE133 | Inv.KH_133
+                ),
+                ModbusAddressesSpec(holding=[31038], models=Inv.H3_SET),
+            ],
+            battery_soh=[
+                # Temporarily removed, see #756
+                # ModbusAddressesSpec(input=[11104], models=Inv.KH_PRE119),
+                ModbusAddressesSpec(holding=[37624], models=Inv.H1_G2_144 | Inv.KH_133),
+                ModbusAddressesSpec(holding=[31090], models=Inv.H3_180),
+                ModbusAddressesSpec(holding=[39423], models=Inv.EVO),
+            ],
+            battery_temp=[
+                ModbusAddressesSpec(input=[11038], models=Inv.H1_G1 | Inv.KH_PRE119),
+                ModbusAddressesSpec(
+                    holding=[31023], models=Inv.H1_G1 | Inv.H1_LAN | Inv.H1_G2_SET | Inv.KH_PRE133 | Inv.KH_133
+                ),
+                ModbusAddressesSpec(holding=[31037], models=Inv.H3_SET),
+            ],
+            bms_cell_temp_high=[
+                ModbusAddressesSpec(input=[11043], models=Inv.H1_G1 | Inv.KH_PRE119),
+                ModbusAddressesSpec(holding=[37617], models=Inv.H1_G2_144 | Inv.KH_133),
+                ModbusAddressesSpec(holding=[31102], models=Inv.H3_180),
+            ],
+            bms_cell_temp_low=[
+                ModbusAddressesSpec(input=[11044], models=Inv.H1_G1 | Inv.KH_PRE119),
+                ModbusAddressesSpec(holding=[37618], models=Inv.H1_G2_144 | Inv.KH_133),
+                ModbusAddressesSpec(holding=[31103], models=Inv.H3_180),
+            ],
+            bms_cell_mv_high=[
+                ModbusAddressesSpec(input=[11045], models=Inv.H1_G1 | Inv.KH_PRE119),
+                ModbusAddressesSpec(holding=[37619], models=Inv.H1_G2_144 | Inv.KH_133),
+                ModbusAddressesSpec(holding=[31134], models=Inv.H3_180),
+            ],
+            bms_cell_mv_low=[
+                ModbusAddressesSpec(input=[11046], models=Inv.H1_G1 | Inv.KH_PRE119),
+                ModbusAddressesSpec(holding=[37620], models=Inv.H1_G2_144 | Inv.KH_133),
+                ModbusAddressesSpec(holding=[31135], models=Inv.H3_180),
+            ],
+            bms_kwh_remaining=[
+                ModbusAddressesSpec(input=[11037], models=Inv.H1_G1 | Inv.KH_PRE119),
+                ModbusAddressesSpec(holding=[37632], models=Inv.H1_G2_SET | Inv.KH_133),
+                ModbusAddressesSpec(holding=[31123], models=Inv.H3_180),
+            ],
+            # Pwr_limit_Bat_Up
+            bms_pwr_limit_discharge=[
+                ModbusAddressesSpec(holding=[44011], models=Inv.H3_SET),
+                ModbusAddressesSpec(holding=[46019, 46018], models=Inv.H3_PRO_SET | Inv.H3_SMART),
+            ],
+            # Pwr_limit_Bat_Dn
+            bms_pwr_limit_charge=[
+                ModbusAddressesSpec(holding=[44012], models=Inv.H3_SET),
+                ModbusAddressesSpec(holding=[46021, 46020], models=Inv.H3_PRO_SET | Inv.H3_SMART),
+            ],
+        ),
     )
     # Per-BMS-unit batteries, which only real Pro hardware has - hence H3_PRO_HW rather than H3_PRO_SET
-    yield from _inner(
-        index=1,
-        bms_connect_state_address=[ModbusAddressSpec(holding=37002, models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        batvolt=[ModbusAddressesSpec(holding=[37609], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bat_current=[ModbusAddressesSpec(holding=[37610], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        battery_soc=[ModbusAddressesSpec(holding=[37612], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        # Added in H3_PRO v1.25, which hasn't been released yet.
-        # See https://github.com/nathanmarlor/foxess_modbus/pull/775#issuecomment-2656447502
-        battery_soh=[ModbusAddressesSpec(holding=[37624], models=Inv.H3_SMART)],
-        battery_temp=[ModbusAddressesSpec(holding=[37611], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bms_cell_temp_high=[ModbusAddressesSpec(holding=[37617], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bms_cell_temp_low=[ModbusAddressesSpec(holding=[37618], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bms_cell_mv_high=[ModbusAddressesSpec(holding=[37619], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bms_cell_mv_low=[ModbusAddressesSpec(holding=[37620], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bms_kwh_remaining=[ModbusAddressesSpec(holding=[37632], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bms_pwr_limit_discharge=[],
-        bms_pwr_limit_charge=[],
+    yield from on_device(
+        BMS[1],
+        _inner(
+            index=1,
+            bms_connect_state_address=[ModbusAddressSpec(holding=37002, models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            batvolt=[ModbusAddressesSpec(holding=[37609], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bat_current=[ModbusAddressesSpec(holding=[37610], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            battery_soc=[ModbusAddressesSpec(holding=[37612], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            # Added in H3_PRO v1.25, which hasn't been released yet.
+            # See https://github.com/nathanmarlor/foxess_modbus/pull/775#issuecomment-2656447502
+            battery_soh=[ModbusAddressesSpec(holding=[37624], models=Inv.H3_SMART)],
+            battery_temp=[ModbusAddressesSpec(holding=[37611], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bms_cell_temp_high=[ModbusAddressesSpec(holding=[37617], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bms_cell_temp_low=[ModbusAddressesSpec(holding=[37618], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bms_cell_mv_high=[ModbusAddressesSpec(holding=[37619], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bms_cell_mv_low=[ModbusAddressesSpec(holding=[37620], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bms_kwh_remaining=[ModbusAddressesSpec(holding=[37632], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bms_pwr_limit_discharge=[],
+            bms_pwr_limit_charge=[],
+        ),
     )
-    yield from _inner(
-        index=2,
-        bms_connect_state_address=[ModbusAddressSpec(holding=37700, models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        batvolt=[ModbusAddressesSpec(holding=[38307], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bat_current=[ModbusAddressesSpec(holding=[38308], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        battery_soc=[ModbusAddressesSpec(holding=[38310], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        # Added in H3_PRO v1.25, which hasn't been released yet.
-        # See https://github.com/nathanmarlor/foxess_modbus/pull/775#issuecomment-2656447502
-        battery_soh=[ModbusAddressesSpec(holding=[38322], models=Inv.H3_SMART)],
-        battery_temp=[ModbusAddressesSpec(holding=[38309], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bms_cell_temp_high=[ModbusAddressesSpec(holding=[38315], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bms_cell_temp_low=[ModbusAddressesSpec(holding=[38316], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bms_cell_mv_high=[ModbusAddressesSpec(holding=[38317], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bms_cell_mv_low=[ModbusAddressesSpec(holding=[38318], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bms_kwh_remaining=[ModbusAddressesSpec(holding=[38330], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
-        bms_pwr_limit_discharge=[],
-        bms_pwr_limit_charge=[],
+    yield from on_device(
+        BMS[2],
+        _inner(
+            index=2,
+            bms_connect_state_address=[ModbusAddressSpec(holding=37700, models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            batvolt=[ModbusAddressesSpec(holding=[38307], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bat_current=[ModbusAddressesSpec(holding=[38308], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            battery_soc=[ModbusAddressesSpec(holding=[38310], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            # Added in H3_PRO v1.25, which hasn't been released yet.
+            # See https://github.com/nathanmarlor/foxess_modbus/pull/775#issuecomment-2656447502
+            battery_soh=[ModbusAddressesSpec(holding=[38322], models=Inv.H3_SMART)],
+            battery_temp=[ModbusAddressesSpec(holding=[38309], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bms_cell_temp_high=[ModbusAddressesSpec(holding=[38315], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bms_cell_temp_low=[ModbusAddressesSpec(holding=[38316], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bms_cell_mv_high=[ModbusAddressesSpec(holding=[38317], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bms_cell_mv_low=[ModbusAddressesSpec(holding=[38318], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bms_kwh_remaining=[ModbusAddressesSpec(holding=[38330], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
+            bms_pwr_limit_discharge=[],
+            bms_pwr_limit_charge=[],
+        ),
     )
 
 

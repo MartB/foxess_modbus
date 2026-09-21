@@ -9,6 +9,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .common.types import HassData
 from .const import DOMAIN
+from .entities.battery_modules import async_setup_battery_modules
 from .entities.connection_status_sensor import ConnectionStatusSensor
 from .inverter_profiles import create_entities
 
@@ -28,3 +29,5 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_d
         # because it can't find the sensor it depends on. See https://github.com/nathanmarlor/foxess_modbus/issues/886
         async_add_devices(create_entities(SensorEntity, controller, filter_depends_on_other_entites=False))
         async_add_devices(create_entities(SensorEntity, controller, filter_depends_on_other_entites=True))
+        # These can only be created once the inverter has told us how many battery modules there are
+        async_setup_battery_modules(controller, async_add_devices)

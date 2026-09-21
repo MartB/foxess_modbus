@@ -141,3 +141,7 @@ class EntityController(ABC):
     @abstractmethod
     def read(self, address: int | list[int], *, signed: bool) -> int | None:
         """Fetch the last-read value for the given address, or None if none is avaiable"""
+
+    @abstractmethod
+    def request_connection_read(self) -> None:
+        """Ask the next poll to re-read the on-connection registers, for entities registered since the last one"""

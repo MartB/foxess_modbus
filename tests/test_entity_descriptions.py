@@ -9,17 +9,25 @@ from homeassistant.components.number import NumberEntity
 from homeassistant.components.select import SelectEntity
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import DeviceInfo
 from syrupy.assertion import SnapshotAssertion
 from syrupy.extensions.json import JSONSnapshotExtension
 
 from custom_components.foxess_modbus.common.entity_controller import ModbusControllerEntity
 from custom_components.foxess_modbus.common.types import ConnectionType
 from custom_components.foxess_modbus.common.types import InverterModel
+from custom_components.foxess_modbus.const import DOMAIN
 from custom_components.foxess_modbus.const import ENTITY_ID_PREFIX
+from custom_components.foxess_modbus.const import FRIENDLY_NAME
 from custom_components.foxess_modbus.const import INVERTER_BASE
 from custom_components.foxess_modbus.const import INVERTER_CONN
+from custom_components.foxess_modbus.const import INVERTER_MODEL
 from custom_components.foxess_modbus.const import UNIQUE_ID_PREFIX
+from custom_components.foxess_modbus.entities.devices import BATTERY
+from custom_components.foxess_modbus.entities.devices import BMS
+from custom_components.foxess_modbus.entities.devices import device_for_key
 from custom_components.foxess_modbus.entities.entity_descriptions import ENTITIES
+from custom_components.foxess_modbus.entities.modbus_entity_mixin import device_info
 from custom_components.foxess_modbus.inverter_profiles import INVERTER_PROFILES
 from custom_components.foxess_modbus.inverter_profiles import Version
 from custom_components.foxess_modbus.inverter_profiles import create_entities
@@ -102,3 +110,43 @@ def test_entities(
     entities.sort(key=lambda x: x.get("key", ""))
 
     assert entities == snapshot_json
+
+
+def test_entity_devices(snapshot_json: SnapshotAssertion) -> None:
+    """Which entities sit on a sub-device rather than on the inverter itself"""
+
+    devices = {}
+    for entity_factory in ENTITIES:
+        key = getattr(entity_factory, "key", None)
+        device = device_for_key(key) if key is not None else None
+        if device is not None:
+            devices[key] = "/".join(device.path)
+
+    assert devices == snapshot_json
+
+
+def test_sub_devices_hang_off_the_inverter() -> None:
+    """A sub-device has to name its parent exactly as the parent registers itself, or HA rejects it"""
+
+    def identifier(info: DeviceInfo) -> tuple[str, ...]:
+        (value,) = info["identifiers"]
+        return cast(tuple[str, ...], value)
+
+    inv_details = {
+        FRIENDLY_NAME: "Garage",
+        INVERTER_MODEL: InverterModel.H3,
+        INVERTER_CONN: ConnectionType.AUX,
+    }
+    inverter = device_info(inv_details)
+    battery = device_info(inv_details, BATTERY)
+    bms = device_info(inv_details, BMS[1])
+
+    assert battery["via_device"] == identifier(inverter)
+    assert bms["via_device"] == identifier(inverter)
+    assert identifier(battery) == (*identifier(inverter), "battery")
+
+    # services/utils.py finds the inverter from a device by looking here, so a service call can target a
+    # sub-device and still reach the right controller
+    for info in (inverter, battery, bms):
+        assert identifier(info)[0] == DOMAIN
+        assert identifier(info)[3] == "Garage"

@@ -14,6 +14,7 @@ from typing import Any
 from homeassistant.components.energy.data import async_get_manager
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry
 from homeassistant.helpers.typing import UNDEFINED
 from slugify import slugify
 
@@ -45,6 +46,7 @@ from .const import STARTUP_MESSAGE
 from .const import TCP
 from .const import UDP
 from .const import UNIQUE_ID_PREFIX
+from .entities.modbus_entity_mixin import device_info
 from .inverter_adapters import ADAPTERS
 from .inverter_profiles import inverter_connection_type_profile_from_config
 from .modbus_controller import ModbusController
@@ -196,6 +198,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass_data[entry.entry_id]["controllers"] = controllers
     hass_data[entry.entry_id]["modbus_clients"] = list(clients.values())
     hass_data[entry.entry_id]["unload"] = entry.add_update_listener(async_reload_entry)
+
+    # The battery and its modules are registered as devices underneath the inverter, and Home Assistant
+    # requires a device's parent to exist before it does. Create the inverters up-front rather than
+    # relying on the order their entities happen to be added in.
+    registry = device_registry.async_get(hass)
+    for controller in controllers:
+        registry.async_get_or_create(config_entry_id=entry.entry_id, **device_info(controller.inverter_details))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

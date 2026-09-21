@@ -221,9 +221,7 @@ class InverterModelConnectionTypeProfile:
                 continue
             key = getattr(entity_factory, "key", None)
             # Anything match_score couldn't rank falls back to first-wins, so nothing is ever dropped
-            if key is not None and (
-                winners[key] is not entity_factory if key in winners else key in claimed_keys
-            ):
+            if key is not None and (winners[key] is not entity_factory if key in winners else key in claimed_keys):
                 continue
 
             entity = entity_factory.create_entity_if_supported(controller, inv, self.register_type)
