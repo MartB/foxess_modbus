@@ -21,6 +21,16 @@
   },
   {
     "addresses": [
+      31091
+    ],
+    "key": "battery_capacity",
+    "name": "Battery Capacity",
+    "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       31036
     ],
     "key": "battery_charge",
@@ -52,6 +62,26 @@
   },
   {
     "addresses": [
+      31139
+    ],
+    "key": "battery_design_capacity",
+    "name": "Battery Design Capacity",
+    "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31140
+    ],
+    "key": "battery_design_energy",
+    "name": "Battery Design Energy",
+    "scale": 0.01,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       31036
     ],
     "key": "battery_discharge",
@@ -78,6 +108,16 @@
     "key": "battery_discharge_total",
     "name": "Battery Discharge Total",
     "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31136
+    ],
+    "key": "battery_module_count",
+    "name": "Battery Module Count",
+    "scale": null,
     "signed": false,
     "type": "sensor"
   },
@@ -129,6 +169,30 @@
     "name": "BMS Max Discharge Power",
     "scale": null,
     "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      30180,
+      30181,
+      30182,
+      30183,
+      30184,
+      30185,
+      30186,
+      30187,
+      30188,
+      30189,
+      30190,
+      30191,
+      30192,
+      30193,
+      30194,
+      30195
+    ],
+    "chars_per_register": 2,
+    "key": "dongle_serial_number",
+    "name": "Dongle Serial Number",
     "type": "sensor"
   },
   {
@@ -690,6 +754,29 @@
       "0": "Off",
       "1": "On"
     }
+  },
+  {
+    "addresses": [
+      30029,
+      30030,
+      30031,
+      30032,
+      30033,
+      30034,
+      30035,
+      30036,
+      30037,
+      30038,
+      30039,
+      30040,
+      30041,
+      30042,
+      30043
+    ],
+    "chars_per_register": 1,
+    "key": "inverter_serial_number",
+    "name": "Serial Number",
+    "type": "sensor"
   },
   {
     "addresses": [

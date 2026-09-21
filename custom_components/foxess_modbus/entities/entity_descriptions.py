@@ -13,6 +13,7 @@ from homeassistant.helpers.entity import EntityCategory
 from custom_components.foxess_modbus.entities.base_validator import BaseValidator
 
 from ..common.types import Inv
+from ..common.types import RegisterPollType
 from ..common.types import RegisterType
 from .charge_period_descriptions import CHARGE_PERIODS
 from .entity_factory import EntityFactory
@@ -34,6 +35,7 @@ from .modbus_lambda_sensor import ModbusLambdaSensorDescription
 from .modbus_number import ModbusNumberDescription
 from .modbus_select import ModbusSelectDescription
 from .modbus_sensor import ModbusSensorDescription
+from .modbus_string_sensor import ModbusStringSensorDescription
 from .modbus_version_sensor import ModbusProtocolVersionSensorDescription
 from .modbus_version_sensor import ModbusVersionSensorDescription
 from .modbus_work_mode_select import ModbusWorkModeSelectDescription
@@ -145,6 +147,85 @@ def _version_entities() -> Iterable[EntityFactory]:
         ],
         name="Version: Protocol",
         icon="mdi:file-document-outline",
+    )
+
+
+def _identity_entities() -> Iterable[EntityFactory]:
+    """Serial numbers and fixed battery ratings.
+
+    All read once per connection: none of them change while the inverter is running.
+    """
+
+    def _serial(key: str, name: str, addresses: list[ModbusAddressesSpec], chars_per_register: int) -> EntityFactory:
+        return ModbusStringSensorDescription(
+            key=key,
+            addresses=addresses,
+            chars_per_register=chars_per_register,
+            name=name,
+            icon="mdi:identifier",
+            entity_category=EntityCategory.DIAGNOSTIC,
+        )
+
+    # The 300xx identity block stores one character per register; the BMS and dongle serials use two.
+    yield _serial(
+        "inverter_serial_number",
+        "Serial Number",
+        [ModbusAddressesSpec(holding=list(range(30029, 30044)), models=Inv.H3_SET)],
+        chars_per_register=1,
+    )
+    yield _serial(
+        "dongle_serial_number",
+        "Dongle Serial Number",
+        [ModbusAddressesSpec(holding=list(range(30180, 30196)), models=Inv.H3_SET)],
+        chars_per_register=2,
+    )
+    yield _serial(
+        "bms_master_serial_number",
+        "BMS Master Serial Number",
+        [ModbusAddressesSpec(holding=list(range(37005, 37013)), models=Inv.H3_PRO_SET | Inv.H3_SMART)],
+        chars_per_register=2,
+    )
+    # Slave 1 and 2 are in the spec; the table carries on at the same stride for the rest, which is how
+    # a stack of more than two modules reports itself.
+    for index in range(1, 6):
+        start = 37097 + 16 * (index - 1)
+        yield _serial(
+            f"bms_slave_{index}_serial_number",
+            f"BMS Slave {index} Serial Number",
+            [ModbusAddressesSpec(holding=list(range(start, start + 8)), models=Inv.H3_PRO_SET | Inv.H3_SMART)],
+            chars_per_register=2,
+        )
+
+    def _battery_rating(key: str, name: str, address: int, scale: float, unit: str, icon: str) -> EntityFactory:
+        return ModbusSensorDescription(
+            key=key,
+            addresses=[ModbusAddressesSpec(holding=[address], models=Inv.H3_SET)],
+            name=name,
+            native_unit_of_measurement=unit,
+            scale=scale,
+            signed=False,
+            icon=icon,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            poll_type=RegisterPollType.ON_CONNECTION,
+            validate=[Min(0)],
+        )
+
+    yield _battery_rating("battery_capacity", "Battery Capacity", 31091, 0.1, "Ah", "mdi:battery-heart-variant")
+    yield _battery_rating(
+        "battery_design_capacity", "Battery Design Capacity", 31139, 0.1, "Ah", "mdi:battery-heart-variant"
+    )
+    yield _battery_rating(
+        "battery_design_energy", "Battery Design Energy", 31140, 0.01, "kWh", "mdi:battery-heart-variant"
+    )
+    yield ModbusSensorDescription(
+        key="battery_module_count",
+        addresses=[ModbusAddressesSpec(holding=[31136], models=Inv.H3_SET)],
+        name="Battery Module Count",
+        signed=False,
+        icon="mdi:battery-sync",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        poll_type=RegisterPollType.ON_CONNECTION,
+        validate=[Min(0)],
     )
 
 
@@ -3138,6 +3219,7 @@ def _configuration_entities() -> Iterable[EntityFactory]:
 ENTITIES: list[EntityFactory] = sorted(
     itertools.chain(
         _version_entities(),
+        _identity_entities(),
         _pv_entities(),
         _h1_current_voltage_power_entities(),
         _h3_current_voltage_power_entities(),

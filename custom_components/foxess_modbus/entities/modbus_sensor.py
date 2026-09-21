@@ -19,6 +19,7 @@ from homeassistant.helpers.typing import StateType
 
 from ..common.entity_controller import EntityController
 from ..common.types import Inv
+from ..common.types import RegisterPollType
 from ..common.types import RegisterType
 from ..const import ROUND_SENSOR_VALUES
 from .base_validator import BaseValidator
@@ -40,6 +41,8 @@ class ModbusSensorDescription(SensorEntityDescription, EntityFactory):  # type: 
     post_process: Callable[[float], float] | None = None
     validate: list[BaseValidator] = field(default_factory=list)
     signed: bool = True
+    # Values which never change while the inverter runs don't need polling every cycle
+    poll_type: RegisterPollType = RegisterPollType.PERIODICALLY
 
     @property
     def entity_type(self) -> type[Entity]:
@@ -168,6 +171,10 @@ class ModbusSensor(ModbusEntityMixin, SensorEntity):
         if new_value != self._attr_native_value:
             self._attr_native_value = new_value
             super()._address_updated()
+
+    @property
+    def register_poll_type(self) -> RegisterPollType:
+        return cast(ModbusSensorDescription, self.entity_description).poll_type
 
     @property
     def addresses(self) -> list[int]:
