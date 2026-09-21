@@ -276,8 +276,18 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry."""
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
+    # Only re-set-up if the unload actually succeeded. If a platform fails to unload (e.g. while the
+    # connection is in a bad state), the old entities are still registered and the listener wasn't
+    # unsubscribed; re-running setup on top of that duplicates every entity ("does not generate unique
+    # IDs ... ignoring") and leaks a reload listener, which makes later reloads fire repeatedly.
+    if await async_unload_entry(hass, entry):
+        await async_setup_entry(hass, entry)
+    else:
+        _LOGGER.warning(
+            "Unload of %s failed during reload; skipping re-setup to avoid duplicate entities. "
+            "Restart Home Assistant to recover.",
+            entry.entry_id,
+        )
 
 
 async def options_update_listener(hass: HomeAssistant, config_entry: ConfigEntry) -> None:

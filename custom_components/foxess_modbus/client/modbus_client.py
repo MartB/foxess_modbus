@@ -12,6 +12,7 @@ import serial
 from homeassistant.core import HomeAssistant
 from pymodbus.client import ModbusSerialClient
 from pymodbus.client import ModbusUdpClient
+from pymodbus.exceptions import ConnectionException
 from pymodbus.pdu import ModbusPDU
 from pymodbus.pdu.register_message import ReadHoldingRegistersResponse
 from pymodbus.pdu.register_message import ReadInputRegistersResponse
@@ -93,7 +94,11 @@ class ModbusClient:
 
         # Some serial devices need a short delay after polling. Also do this for the inverter, just
         # in case it helps.
-        self._poll_delay = 30 / 1000 if protocol == SERIAL or adapter.connection_type == ConnectionType.LAN else 0
+        # tcp and rtu-over-tcp get it too: some cheap RS485<->TCP bridges can't keep up with back-to-back
+        # requests, and answer the next request with the previous one's data. Raise this if one still does
+        poll_delay_seconds = 30 / 1000
+        is_delayed = protocol in (SERIAL, TCP, RTU_OVER_TCP) or adapter.connection_type == ConnectionType.LAN
+        self._poll_delay = poll_delay_seconds if is_delayed else 0
 
         self._client = client["client"](**config)
 
@@ -101,6 +106,28 @@ class ModbusClient:
         """Close connection"""
         _LOGGER.debug("Closing connection to modbus on %s", self)
         await self._async_pymodbus_call(self._client.close, auto_connect=False)
+
+    def _reset_framer_buffer(self) -> None:
+        """Best-effort clear of pymodbus's framer receive buffer.
+
+        Leftover bytes in there survive a socket close, and would keep the stream one behind. The exact
+        attribute and method names vary between pymodbus versions, so try all the ones we know about.
+        """
+        framer = getattr(self._client, "framer", None)
+        if framer is None:
+            return
+        reset = getattr(framer, "resetFrame", None) or getattr(framer, "reset_frame", None)
+        if callable(reset):
+            try:
+                reset()
+            except Exception:
+                _LOGGER.debug("framer reset method raised on %s", self, exc_info=True)
+        for attr in ("_buffer", "databuffer", "_databuffer"):
+            if hasattr(framer, attr):
+                try:
+                    setattr(framer, attr, b"")
+                except Exception:
+                    _LOGGER.debug("failed clearing framer.%s on %s", attr, self, exc_info=True)
 
     async def read_registers(
         self,
@@ -158,6 +185,23 @@ class ModbusClient:
 
         registers: list[int] = response.registers
 
+        # rtu_over_tcp has no length prefix, so a delayed or partial reply can desync the stream and leave
+        # pymodbus pairing responses with the wrong requests. Trusting the count then writes values to the
+        # wrong addresses, so treat a mismatch as a transient error and let the caller retry the read
+        if len(registers) != num_registers:
+            message = (
+                f"Error reading registers. Type: {register_type}; start: {start_address}; "
+                f"count: {num_registers}; slave: {slave}. Expected {num_registers} registers but received "
+                f"{len(registers)}. This usually indicates a framing/desync issue on the connection."
+            )
+            _LOGGER.warning(message)
+            try:
+                await self.close()
+            except Exception:
+                _LOGGER.debug("Error closing connection after register-count mismatch", exc_info=True)
+            self._reset_framer_buffer()
+            raise ModbusClientFailedError(message, self, response)
+
         return registers
 
     async def write_registers(self, register_address: int, register_values: list[int], slave: int) -> None:
@@ -213,7 +257,15 @@ class ModbusClient:
             if auto_connect and not self._client.connected:
                 self._client.connect()
             # If the connection failed, this call will throw an appropriate error
-            return call(*args, **kwargs)
+            try:
+                return call(*args, **kwargs)
+            except (ConnectionException, OSError):
+                # Null the socket, so that the next call reconnects rather than reusing a dead one
+                try:
+                    self._client.close()
+                except Exception:
+                    _LOGGER.debug("Error closing connection to %s after failure", self, exc_info=True)
+                raise
 
         async with self._lock:
             result = await self._hass.async_add_executor_job(_call)

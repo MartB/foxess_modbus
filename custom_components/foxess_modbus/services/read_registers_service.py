@@ -65,8 +65,8 @@ async def _read_service(
         register_type = types[service_data.data["type"]]
         values = await controller.read_registers(start_address, num_registers, register_type)
         response_values = {}
-        for i in range(num_registers):
-            response_values[start_address + i] = values[i]
+        for i, value in enumerate(values):
+            response_values[start_address + i] = value
         response["values"] = response_values
     except Exception as ex:
         _LOGGER.warning(ex, exc_info=True)
