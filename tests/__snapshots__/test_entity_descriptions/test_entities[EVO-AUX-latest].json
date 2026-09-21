@@ -330,7 +330,7 @@
     "key": "load_energy_today",
     "name": "Load Energy Today",
     "scale": 0.01,
-    "signed": true,
+    "signed": false,
     "type": "sensor"
   },
   {
@@ -390,6 +390,7 @@
     "key": "max_charge_current",
     "name": "Max Charge Current",
     "scale": 0.1,
+    "signed": false,
     "type": "number"
   },
   {
@@ -409,6 +410,7 @@
     "key": "max_discharge_current",
     "name": "Max Discharge Current",
     "scale": 0.1,
+    "signed": false,
     "type": "number"
   },
   {
@@ -428,6 +430,7 @@
     "key": "max_soc",
     "name": "Max SoC",
     "scale": null,
+    "signed": false,
     "type": "number"
   },
   {
@@ -447,6 +450,7 @@
     "key": "min_soc",
     "name": "Min SoC",
     "scale": null,
+    "signed": false,
     "type": "number"
   },
   {
@@ -466,6 +470,7 @@
     "key": "min_soc_on_grid",
     "name": "Min SoC (On Grid)",
     "scale": null,
+    "signed": false,
     "type": "number"
   },
   {
@@ -592,7 +597,7 @@
       39139
     ],
     "key": "rfreq",
-    "name": "Grid Frequency",
+    "name": "Grid R Frequency",
     "scale": 0.01,
     "signed": false,
     "type": "sensor"

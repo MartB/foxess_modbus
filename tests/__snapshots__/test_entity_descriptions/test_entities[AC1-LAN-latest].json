@@ -515,7 +515,7 @@
       31009
     ],
     "key": "rfreq",
-    "name": "Grid Frequency",
+    "name": "Grid R Frequency",
     "scale": 0.01,
     "signed": false,
     "type": "sensor"

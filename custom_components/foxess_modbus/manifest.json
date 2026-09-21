@@ -8,5 +8,5 @@
   "integration_type": "service",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/nathanmarlor/foxess_modbus/issues",
-  "version": "0.0.0"
+  "version": "1.14.0b4"
 }

@@ -173,7 +173,8 @@
   },
   {
     "addresses": [
-      31015
+      31052,
+      31051
     ],
     "key": "ct2_meter",
     "name": "CT2 Meter",
@@ -203,7 +204,8 @@
   },
   {
     "addresses": [
-      31012
+      31048,
+      31047
     ],
     "key": "eps_rpower",
     "name": "EPS Power",
@@ -240,6 +242,7 @@
     "key": "export_power_limit",
     "name": "Export Power Limit",
     "scale": null,
+    "signed": false,
     "type": "number"
   },
   {
@@ -250,6 +253,17 @@
     "key": "feed_in",
     "name": "Feed-in",
     "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31050,
+      31049
+    ],
+    "key": "feed_in",
+    "name": "Feed-in",
+    "scale": -0.001,
     "signed": true,
     "type": "sensor"
   },
@@ -287,6 +301,17 @@
   },
   {
     "addresses": [
+      31050,
+      31049
+    ],
+    "key": "grid_consumption",
+    "name": "Grid Consumption",
+    "scale": -0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       32014
     ],
     "key": "grid_consumption_energy_today",
@@ -319,6 +344,17 @@
   },
   {
     "addresses": [
+      31050,
+      31049
+    ],
+    "key": "grid_ct",
+    "name": "Grid CT",
+    "scale": -0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       46502,
       46501
     ],
@@ -336,6 +372,7 @@
     "key": "import_power_limit",
     "name": "Import Power Limit",
     "scale": null,
+    "signed": false,
     "type": "number"
   },
   {
@@ -489,12 +526,13 @@
     "key": "load_energy_today",
     "name": "Load Energy Today",
     "scale": 0.1,
-    "signed": true,
+    "signed": false,
     "type": "sensor"
   },
   {
     "addresses": [
-      31016
+      31054,
+      31053
     ],
     "key": "load_power",
     "name": "Load Power",
@@ -515,7 +553,7 @@
   },
   {
     "addresses": [
-      36003
+      30018
     ],
     "is_hex": true,
     "key": "manager_version",
@@ -524,7 +562,7 @@
   },
   {
     "addresses": [
-      36001
+      30016
     ],
     "is_hex": true,
     "key": "master_version",
@@ -548,6 +586,7 @@
     "key": "max_charge_current",
     "name": "Max Charge Current",
     "scale": 0.1,
+    "signed": false,
     "type": "number"
   },
   {
@@ -567,6 +606,7 @@
     "key": "max_discharge_current",
     "name": "Max Discharge Current",
     "scale": 0.1,
+    "signed": false,
     "type": "number"
   },
   {
@@ -586,6 +626,7 @@
     "key": "max_soc",
     "name": "Max SoC",
     "scale": null,
+    "signed": false,
     "type": "number"
   },
   {
@@ -605,6 +646,7 @@
     "key": "min_soc",
     "name": "Min SoC",
     "scale": null,
+    "signed": false,
     "type": "number"
   },
   {
@@ -624,7 +666,18 @@
     "key": "min_soc_on_grid",
     "name": "Min SoC (On Grid)",
     "scale": null,
+    "signed": false,
     "type": "number"
+  },
+  {
+    "addresses": [
+      31001
+    ],
+    "key": "pv1_current",
+    "name": "PV1 Current",
+    "scale": 0.1,
+    "signed": true,
+    "type": "sensor"
   },
   {
     "addresses": [
@@ -661,6 +714,16 @@
     ],
     "key": "pv1_voltage",
     "name": "PV1 Voltage",
+    "scale": 0.1,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31004
+    ],
+    "key": "pv2_current",
+    "name": "PV2 Current",
     "scale": 0.1,
     "signed": true,
     "type": "sensor"
@@ -706,6 +769,16 @@
   },
   {
     "addresses": [
+      31040
+    ],
+    "key": "pv3_current",
+    "name": "PV3 Current",
+    "scale": 0.1,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       39075
     ],
     "key": "pv3_current",
@@ -724,8 +797,7 @@
   },
   {
     "addresses": [
-      39284,
-      39283
+      31041
     ],
     "key": "pv3_power",
     "name": "PV3 Power",
@@ -735,10 +807,20 @@
   },
   {
     "addresses": [
-      39074
+      31039
     ],
     "key": "pv3_voltage",
     "name": "PV3 Voltage",
+    "scale": 0.1,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31043
+    ],
+    "key": "pv4_current",
+    "name": "PV4 Current",
     "scale": 0.1,
     "signed": true,
     "type": "sensor"
@@ -763,8 +845,7 @@
   },
   {
     "addresses": [
-      39286,
-      39285
+      31044
     ],
     "key": "pv4_power",
     "name": "PV4 Power",
@@ -774,7 +855,7 @@
   },
   {
     "addresses": [
-      39076
+      31042
     ],
     "key": "pv4_voltage",
     "name": "PV4 Voltage",
@@ -808,14 +889,15 @@
       31009
     ],
     "key": "rfreq",
-    "name": "Grid Frequency",
+    "name": "Grid R Frequency",
     "scale": 0.01,
     "signed": false,
     "type": "sensor"
   },
   {
     "addresses": [
-      31008
+      31046,
+      31045
     ],
     "key": "rpower",
     "name": "Inverter Power",
@@ -835,7 +917,7 @@
   },
   {
     "addresses": [
-      36002
+      30017
     ],
     "is_hex": true,
     "key": "slave_version",

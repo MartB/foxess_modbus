@@ -1,6 +1,28 @@
 [
   {
     "addresses": [
+      39278,
+      39277
+    ],
+    "key": "available_export_power",
+    "name": "Available Export Power",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      39276,
+      39275
+    ],
+    "key": "available_import_power",
+    "name": "Available Import Power",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       37610
     ],
     "key": "bat_current_1",
@@ -65,12 +87,34 @@
   },
   {
     "addresses": [
+      39608,
+      39607
+    ],
+    "key": "battery_charge_today",
+    "name": "Battery Charge Today",
+    "scale": 0.01,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       39606,
       39605
     ],
     "key": "battery_charge_total",
     "name": "Battery Charge Total",
     "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      39606,
+      39605
+    ],
+    "key": "battery_charge_total",
+    "name": "Battery Charge Total",
+    "scale": 0.01,
     "signed": false,
     "type": "sensor"
   },
@@ -120,12 +164,34 @@
   },
   {
     "addresses": [
+      39612,
+      39611
+    ],
+    "key": "battery_discharge_today",
+    "name": "Battery Discharge Today",
+    "scale": 0.01,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       39610,
       39609
     ],
     "key": "battery_discharge_total",
     "name": "Battery Discharge Total",
     "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      39610,
+      39609
+    ],
+    "key": "battery_discharge_total",
+    "name": "Battery Discharge Total",
+    "scale": 0.01,
     "signed": false,
     "type": "sensor"
   },
@@ -291,6 +357,28 @@
   },
   {
     "addresses": [
+      46021,
+      46020
+    ],
+    "key": "bms_pwr_limit_charge",
+    "name": "BMS Max Charge Power",
+    "scale": null,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      46019,
+      46018
+    ],
+    "key": "bms_pwr_limit_discharge",
+    "name": "BMS Max Discharge Power",
+    "scale": null,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       38915,
       38914
     ],
@@ -335,8 +423,19 @@
   },
   {
     "addresses": [
-      39213,
-      39212
+      39217,
+      39216
+    ],
+    "key": "eps_power",
+    "name": "EPS Power",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      39211,
+      39210
     ],
     "key": "eps_power_R",
     "name": "EPS Power R",
@@ -346,8 +445,8 @@
   },
   {
     "addresses": [
-      39215,
-      39214
+      39213,
+      39212
     ],
     "key": "eps_power_S",
     "name": "EPS Power S",
@@ -357,8 +456,8 @@
   },
   {
     "addresses": [
-      39217,
-      39216
+      39215,
+      39214
     ],
     "key": "eps_power_T",
     "name": "EPS Power T",
@@ -486,12 +585,34 @@
   },
   {
     "addresses": [
+      39616,
+      39615
+    ],
+    "key": "feed_in_energy_today",
+    "name": "Feed-in Today",
+    "scale": 0.01,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       39614,
       39613
     ],
     "key": "feed_in_energy_total",
     "name": "Feed-in Total",
     "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      39614,
+      39613
+    ],
+    "key": "feed_in_energy_total",
+    "name": "Feed-in Total",
+    "scale": 0.01,
     "signed": false,
     "type": "sensor"
   },
@@ -552,12 +673,34 @@
   },
   {
     "addresses": [
+      39620,
+      39619
+    ],
+    "key": "grid_consumption_energy_today",
+    "name": "Grid Consumption Today",
+    "scale": 0.01,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       39618,
       39617
     ],
     "key": "grid_consumption_energy_total",
     "name": "Grid Consumption Total",
     "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      39618,
+      39617
+    ],
+    "key": "grid_consumption_energy_total",
+    "name": "Grid Consumption Total",
+    "scale": 0.01,
     "signed": false,
     "type": "sensor"
   },
@@ -607,6 +750,138 @@
   },
   {
     "addresses": [
+      38831,
+      38830
+    ],
+    "key": "grid_ct_apparent",
+    "name": "Grid CT (Apparent)",
+    "scale": 0.0001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      38833,
+      38832
+    ],
+    "key": "grid_ct_apparent_R",
+    "name": "Grid CT (Apparent) R",
+    "scale": 0.0001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      38835,
+      38834
+    ],
+    "key": "grid_ct_apparent_S",
+    "name": "Grid CT (Apparent) S",
+    "scale": 0.0001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      38837,
+      38836
+    ],
+    "key": "grid_ct_apparent_T",
+    "name": "Grid CT (Apparent) T",
+    "scale": 0.0001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      38839,
+      38838
+    ],
+    "key": "grid_ct_pf",
+    "name": "Grid CT Power Factor",
+    "scale": 1e-05,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      38841,
+      38840
+    ],
+    "key": "grid_ct_pf_R",
+    "name": "Grid CT Power Factor R",
+    "scale": 1e-05,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      38843,
+      38842
+    ],
+    "key": "grid_ct_pf_S",
+    "name": "Grid CT Power Factor S",
+    "scale": 1e-05,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      38845,
+      38844
+    ],
+    "key": "grid_ct_pf_T",
+    "name": "Grid CT Power Factor T",
+    "scale": 1e-05,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      38823,
+      38822
+    ],
+    "key": "grid_ct_reactive",
+    "name": "Grid CT (Reactive)",
+    "scale": 0.0001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      38825,
+      38824
+    ],
+    "key": "grid_ct_reactive_R",
+    "name": "Grid CT (Reactive) R",
+    "scale": 0.0001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      38827,
+      38826
+    ],
+    "key": "grid_ct_reactive_S",
+    "name": "Grid CT (Reactive) S",
+    "scale": 0.0001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      38829,
+      38828
+    ],
+    "key": "grid_ct_reactive_T",
+    "name": "Grid CT (Reactive) T",
+    "scale": 0.0001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       39123
     ],
     "key": "grid_voltage_R",
@@ -648,12 +923,34 @@
   },
   {
     "addresses": [
+      39628,
+      39627
+    ],
+    "key": "input_energy_today",
+    "name": "Input Energy Today",
+    "scale": 0.01,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       39626,
       39625
     ],
     "key": "input_energy_total",
     "name": "Input Energy Total",
     "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      39626,
+      39625
+    ],
+    "key": "input_energy_total",
+    "name": "Input Energy Total",
+    "scale": 0.01,
     "signed": false,
     "type": "sensor"
   },
@@ -946,7 +1243,18 @@
     "key": "load_energy_today",
     "name": "Load Energy Today",
     "scale": 0.1,
-    "signed": true,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      39632,
+      39631
+    ],
+    "key": "load_energy_today",
+    "name": "Load Energy Today",
+    "scale": 0.01,
+    "signed": false,
     "type": "sensor"
   },
   {
@@ -1006,6 +1314,17 @@
   },
   {
     "addresses": [
+      39630,
+      39629
+    ],
+    "key": "load_power_total",
+    "name": "Load Energy Total",
+    "scale": 0.01,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       36003
     ],
     "is_hex": true,
@@ -1018,6 +1337,15 @@
       36001
     ],
     "is_hex": false,
+    "key": "master_version",
+    "name": "Version: Master",
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      36001
+    ],
+    "is_hex": true,
     "key": "master_version",
     "name": "Version: Master",
     "type": "sensor"
@@ -1039,6 +1367,7 @@
     "key": "max_charge_current",
     "name": "Max Charge Current",
     "scale": 0.1,
+    "signed": false,
     "type": "number"
   },
   {
@@ -1058,6 +1387,7 @@
     "key": "max_discharge_current",
     "name": "Max Discharge Current",
     "scale": 0.1,
+    "signed": false,
     "type": "number"
   },
   {
@@ -1077,6 +1407,7 @@
     "key": "max_soc",
     "name": "Max SoC",
     "scale": null,
+    "signed": false,
     "type": "number"
   },
   {
@@ -1096,6 +1427,7 @@
     "key": "min_soc",
     "name": "Min SoC",
     "scale": null,
+    "signed": false,
     "type": "number"
   },
   {
@@ -1115,7 +1447,17 @@
     "key": "min_soc_on_grid",
     "name": "Min SoC (On Grid)",
     "scale": null,
+    "signed": false,
     "type": "number"
+  },
+  {
+    "addresses": [
+      39001,
+      39000
+    ],
+    "key": "protocol_version",
+    "name": "Version: Protocol",
+    "type": "sensor"
   },
   {
     "addresses": [
@@ -1370,9 +1712,20 @@
       38846
     ],
     "key": "rfreq",
-    "name": "Grid Frequency",
+    "name": "Grid R Frequency",
     "scale": 0.01,
     "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      39271,
+      39270
+    ],
+    "key": "rpower_S",
+    "name": "Inverter Power (Apparent)",
+    "scale": 0.001,
+    "signed": true,
     "type": "sensor"
   },
   {
@@ -1419,12 +1772,32 @@
   },
   {
     "addresses": [
+      36002
+    ],
+    "is_hex": true,
+    "key": "slave_version",
+    "name": "Version: Slave",
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       39604,
       39603
     ],
     "key": "solar_energy_today",
     "name": "Solar Generation Today",
     "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      39604,
+      39603
+    ],
+    "key": "solar_energy_today",
+    "name": "Solar Generation Today",
+    "scale": 0.01,
     "signed": false,
     "type": "sensor"
   },
@@ -1441,6 +1814,27 @@
   },
   {
     "addresses": [
+      39602,
+      39601
+    ],
+    "key": "solar_energy_total",
+    "name": "Solar Generation Total",
+    "scale": 0.01,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      39423
+    ],
+    "key": "system_soc",
+    "name": "System Battery SoC",
+    "scale": null,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       39624,
       39623
     ],
@@ -1452,12 +1846,34 @@
   },
   {
     "addresses": [
+      39624,
+      39623
+    ],
+    "key": "total_yield_today",
+    "name": "Yield Today",
+    "scale": 0.01,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       39622,
       39621
     ],
     "key": "total_yield_total",
     "name": "Yield Total",
     "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      39622,
+      39621
+    ],
+    "key": "total_yield_total",
+    "name": "Yield Total",
+    "scale": 0.01,
     "signed": false,
     "type": "sensor"
   },

@@ -93,6 +93,16 @@
   },
   {
     "addresses": [
+      31090
+    ],
+    "key": "battery_soh",
+    "name": "Battery SoH",
+    "scale": null,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       31037
     ],
     "key": "battery_temp",
@@ -113,12 +123,137 @@
   },
   {
     "addresses": [
+      31134
+    ],
+    "key": "bms_cell_mv_high",
+    "name": "BMS Cell mV High",
+    "scale": null,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31135
+    ],
+    "key": "bms_cell_mv_low",
+    "name": "BMS Cell mV Low",
+    "scale": null,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31102
+    ],
+    "key": "bms_cell_temp_high",
+    "name": "BMS Cell Temp High",
+    "scale": 0.1,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31103
+    ],
+    "key": "bms_cell_temp_low",
+    "name": "BMS Cell Temp Low",
+    "scale": 0.1,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31123
+    ],
+    "key": "bms_kwh_remaining",
+    "name": "BMS kWh Remaining",
+    "scale": 0.01,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      44012
+    ],
+    "key": "bms_pwr_limit_charge",
+    "name": "BMS Max Charge Power",
+    "scale": null,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      44011
+    ],
+    "key": "bms_pwr_limit_discharge",
+    "name": "BMS Max Discharge Power",
+    "scale": null,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31108,
+      31107
+    ],
+    "key": "ct2_meter",
+    "name": "CT2 Meter",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31110,
+      31109
+    ],
+    "key": "ct2_meter_R",
+    "name": "CT2 Meter R",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31112,
+      31111
+    ],
+    "key": "ct2_meter_S",
+    "name": "CT2 Meter S",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31114,
+      31113
+    ],
+    "key": "ct2_meter_T",
+    "name": "CT2 Meter T",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       31025
     ],
     "key": "eps_frequency",
     "name": "EPS Frequency",
     "scale": 0.01,
     "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31138,
+      31137
+    ],
+    "key": "eps_power",
+    "name": "EPS Power",
+    "scale": 0.001,
+    "signed": true,
     "type": "sensor"
   },
   {
@@ -153,7 +288,90 @@
   },
   {
     "addresses": [
-      31026
+      31019
+    ],
+    "key": "eps_rcurrent_R",
+    "name": "EPS Current R",
+    "scale": 0.1,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31020
+    ],
+    "key": "eps_rcurrent_S",
+    "name": "EPS Current S",
+    "scale": 0.1,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31021
+    ],
+    "key": "eps_rcurrent_T",
+    "name": "EPS Current T",
+    "scale": 0.1,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31016
+    ],
+    "key": "eps_rvolt_R",
+    "name": "EPS Voltage_R",
+    "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31017
+    ],
+    "key": "eps_rvolt_S",
+    "name": "EPS Voltage_S",
+    "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31018
+    ],
+    "key": "eps_rvolt_T",
+    "name": "EPS Voltage_T",
+    "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      41013,
+      41012
+    ],
+    "key": "export_limit",
+    "name": "Export Limit",
+    "scale": null,
+    "signed": true,
+    "type": "number"
+  },
+  {
+    "addresses": [
+      31066,
+      31065
+    ],
+    "key": "feed_in",
+    "name": "Feed-in",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31068,
+      31067
     ],
     "key": "feed_in_R",
     "name": "Feed-in R",
@@ -163,7 +381,8 @@
   },
   {
     "addresses": [
-      31027
+      31070,
+      31069
     ],
     "key": "feed_in_S",
     "name": "Feed-in S",
@@ -173,7 +392,8 @@
   },
   {
     "addresses": [
-      31028
+      31072,
+      31071
     ],
     "key": "feed_in_T",
     "name": "Feed-in T",
@@ -204,7 +424,19 @@
   },
   {
     "addresses": [
-      31026
+      31066,
+      31065
+    ],
+    "key": "grid_consumption",
+    "name": "Grid Consumption",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31068,
+      31067
     ],
     "key": "grid_consumption_R",
     "name": "Grid Consumption R",
@@ -214,7 +446,8 @@
   },
   {
     "addresses": [
-      31027
+      31070,
+      31069
     ],
     "key": "grid_consumption_S",
     "name": "Grid Consumption S",
@@ -224,7 +457,8 @@
   },
   {
     "addresses": [
-      31028
+      31072,
+      31071
     ],
     "key": "grid_consumption_T",
     "name": "Grid Consumption T",
@@ -255,7 +489,19 @@
   },
   {
     "addresses": [
-      31026
+      31066,
+      31065
+    ],
+    "key": "grid_ct",
+    "name": "Grid CT",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31068,
+      31067
     ],
     "key": "grid_ct_R",
     "name": "Grid CT R",
@@ -265,7 +511,8 @@
   },
   {
     "addresses": [
-      31027
+      31070,
+      31069
     ],
     "key": "grid_ct_S",
     "name": "Grid CT S",
@@ -275,10 +522,95 @@
   },
   {
     "addresses": [
-      31028
+      31072,
+      31071
     ],
     "key": "grid_ct_T",
     "name": "Grid CT T",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31081
+    ],
+    "key": "grid_ct_pf",
+    "name": "Grid CT Power Factor",
+    "scale": 0.01,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31082
+    ],
+    "key": "grid_ct_pf_R",
+    "name": "Grid CT Power Factor R",
+    "scale": 0.01,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31083
+    ],
+    "key": "grid_ct_pf_S",
+    "name": "Grid CT Power Factor S",
+    "scale": 0.01,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31084
+    ],
+    "key": "grid_ct_pf_T",
+    "name": "Grid CT Power Factor T",
+    "scale": 0.01,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31074,
+      31073
+    ],
+    "key": "grid_ct_reactive",
+    "name": "Grid CT (Reactive)",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31076,
+      31075
+    ],
+    "key": "grid_ct_reactive_R",
+    "name": "Grid CT (Reactive) R",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31078,
+      31077
+    ],
+    "key": "grid_ct_reactive_S",
+    "name": "Grid CT (Reactive) S",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31080,
+      31079
+    ],
+    "key": "grid_ct_reactive_T",
+    "name": "Grid CT (Reactive) T",
     "scale": 0.001,
     "signed": true,
     "type": "sensor"
@@ -366,6 +698,17 @@
   },
   {
     "addresses": [
+      31125,
+      31124
+    ],
+    "key": "inv_power",
+    "name": "Inverter Power",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       31012
     ],
     "key": "inv_power_R",
@@ -392,6 +735,36 @@
     "name": "Inverter Power T",
     "scale": 0.001,
     "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31052
+    ],
+    "key": "inv_voltage_R",
+    "name": "Inverter Voltage R",
+    "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31053
+    ],
+    "key": "inv_voltage_S",
+    "name": "Inverter Voltage S",
+    "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31054
+    ],
+    "key": "inv_voltage_T",
+    "name": "Inverter Voltage T",
+    "scale": 0.1,
+    "signed": false,
     "type": "sensor"
   },
   {
@@ -548,6 +921,37 @@
   },
   {
     "addresses": [
+      41014
+    ],
+    "key": "inverter_on_off",
+    "name": "Inverter On/Off",
+    "type": "select",
+    "values": {
+      "0": "Off",
+      "1": "On"
+    }
+  },
+  {
+    "addresses": [
+      31041
+    ],
+    "key": "inverter_state",
+    "name": "Inverter State",
+    "states": [
+      "Waiting",
+      "Checking",
+      "On Grid",
+      "Off Grid / EPS",
+      "Fault (4)",
+      "Fault (5)",
+      "Unknown (6)",
+      "Unknown (7)",
+      "Standby"
+    ],
+    "type": "inverter-state-sensor"
+  },
+  {
+    "addresses": [
       31032
     ],
     "key": "invtemp",
@@ -563,12 +967,24 @@
     "key": "load_energy_today",
     "name": "Load Energy Today",
     "scale": 0.1,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31127,
+      31126
+    ],
+    "key": "load_power",
+    "name": "Load Power",
+    "scale": 0.001,
     "signed": true,
     "type": "sensor"
   },
   {
     "addresses": [
-      31029
+      31129,
+      31128
     ],
     "key": "load_power_R",
     "name": "Load Power R",
@@ -578,7 +994,8 @@
   },
   {
     "addresses": [
-      31030
+      31131,
+      31130
     ],
     "key": "load_power_S",
     "name": "Load Power S",
@@ -588,7 +1005,8 @@
   },
   {
     "addresses": [
-      31031
+      31133,
+      31132
     ],
     "key": "load_power_T",
     "name": "Load Power T",
@@ -642,6 +1060,7 @@
     "key": "max_charge_current",
     "name": "Max Charge Current",
     "scale": 0.1,
+    "signed": false,
     "type": "number"
   },
   {
@@ -661,6 +1080,7 @@
     "key": "max_discharge_current",
     "name": "Max Discharge Current",
     "scale": 0.1,
+    "signed": false,
     "type": "number"
   },
   {
@@ -680,6 +1100,7 @@
     "key": "max_soc",
     "name": "Max SoC",
     "scale": null,
+    "signed": false,
     "type": "number"
   },
   {
@@ -699,6 +1120,7 @@
     "key": "min_soc",
     "name": "Min SoC",
     "scale": null,
+    "signed": false,
     "type": "number"
   },
   {
@@ -718,7 +1140,33 @@
     "key": "min_soc_on_grid",
     "name": "Min SoC (On Grid)",
     "scale": null,
+    "signed": false,
     "type": "number"
+  },
+  {
+    "addresses": [
+      44030
+    ],
+    "key": "mppt_switchoff",
+    "name": "MPPT Switch-off",
+    "type": "select",
+    "values": {
+      "0": "Both Enabled",
+      "1": "MPPT1 Disabled",
+      "2": "MPPT2 Disabled",
+      "3": "Both Disabled"
+    }
+  },
+  {
+    "addresses": [
+      31150,
+      31149
+    ],
+    "key": "non_self_ac_pwr",
+    "name": "Parallel System AC Power",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
   },
   {
     "addresses": [
@@ -810,7 +1258,58 @@
       31015
     ],
     "key": "rfreq",
-    "name": "Grid Frequency",
+    "name": "Grid R Frequency",
+    "scale": 0.01,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31056,
+      31055
+    ],
+    "key": "rpower_S",
+    "name": "Inverter Power (Apparent)",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31057
+    ],
+    "key": "rpower_S_R",
+    "name": "Inverter Power (Apparent) R",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31058
+    ],
+    "key": "rpower_S_S",
+    "name": "Inverter Power (Apparent) S",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31059
+    ],
+    "key": "rpower_S_T",
+    "name": "Inverter Power (Apparent) T",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31085
+    ],
+    "key": "sfreq",
+    "name": "Grid S Frequency",
     "scale": 0.01,
     "signed": false,
     "type": "sensor"
@@ -853,6 +1352,26 @@
     "name": "Inverter State Code",
     "scale": null,
     "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31141
+    ],
+    "key": "system_soc",
+    "name": "System Battery SoC",
+    "scale": null,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
+      31086
+    ],
+    "key": "tfreq",
+    "name": "Grid T Frequency",
+    "scale": 0.01,
+    "signed": false,
     "type": "sensor"
   },
   {
