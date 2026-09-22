@@ -79,20 +79,22 @@ class SpecialRegisterConfig:
 
 
 H1_AC1_REGISTERS = SpecialRegisterConfig(invalid_register_ranges=[(11096, 39999)])
+# Nothing is read in 49204-49221, and an H3 answers IllegalAddress for 49205 and 49213-49220, so keep
+# reads from bridging across it to reach the clock at 49222
 # See https://github.com/nathanmarlor/foxess_modbus/discussions/503
 H3_REGISTERS = SpecialRegisterConfig(
-    invalid_register_ranges=[(41001, 41006), (41015, 41015), (46515, 46600)],
+    invalid_register_ranges=[(41001, 41006), (41015, 41015), (46515, 46600), (49204, 49221)],
     individual_read_register_ranges=[(41000, 41999), (44002, 44004), (44007, 44014)],
 )
 # H3_REGISTERS with an extra range, see https://github.com/nathanmarlor/foxess_modbus/issues/692
 H3_PRO_REGISTERS = SpecialRegisterConfig(
-    invalid_register_ranges=[(37633, 37699), (41001, 41006), (41012, 41013), (41015, 41015)],
+    invalid_register_ranges=[(37633, 37699), (41001, 41006), (41012, 41013), (41015, 41015), (49204, 49221)],
     individual_read_register_ranges=[(41000, 41999)],
 )
 # See https://github.com/nathanmarlor/foxess_modbus/discussions/792
 # All the 410xx register are not specified within the document version V1.05.03.00
 H3_SMART_REGISTERS = SpecialRegisterConfig(
-    invalid_register_ranges=[(41001, 41006), (41012, 41013), (41015, 41015)],
+    invalid_register_ranges=[(41001, 41006), (41012, 41013), (41015, 41015), (49204, 49221)],
     individual_read_register_ranges=[(37609, 37620), (37632, 37636)],
 )
 # See https://github.com/nathanmarlor/foxess_modbus/pull/512

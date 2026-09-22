@@ -94,6 +94,9 @@ class InvalidRegisterRanges:
     def __contains__(self, item: int) -> bool:
         return any(item >= x.start and item < x.start + x.count for x in self._ranges)
 
+    def overlaps(self, start: int, end: int) -> bool:
+        return any(start <= x.start + x.count - 1 and end >= x.start for x in self._ranges)
+
     def __str__(self) -> str:
         return ", ".join(f"[{x.start, x.count}]" for x in self._ranges)
 
@@ -455,6 +458,9 @@ class ModbusController(EntityController, UnloadController):
             elif address == start_address + 1 or (
                 address <= start_address + max_read - 1
                 and not self._connection_type_profile.overlaps_invalid_range(start_address, address - 1)
+                # Registers which turned out to be unreadable are worth avoiding too, or a read which
+                # bridges one keeps failing and falling back to reading the whole range one at a time
+                and not self._detected_invalid_ranges.overlaps(start_address, address - 1)
             ):
                 # There's a previous read which we can extend
                 read_size = address - start_address + 1
