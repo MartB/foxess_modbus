@@ -36,6 +36,7 @@ from .const import INVERTER_MODEL
 from .const import MAX_READ
 from .inverter_profiles import INVERTER_PROFILES
 from .inverter_profiles import InverterModelConnectionTypeProfile
+from .read_cost import ReadCostEstimator
 from .remote_control_manager import RemoteControlManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -126,6 +127,8 @@ class ModbusController(EntityController, UnloadController):
         self._slave = slave
         self._poll_rate = poll_rate
         self._max_read = max_read
+        # Learns what a read costs here, which decides how far it's worth reading across a gap
+        self._read_cost = ReadCostEstimator()
         self._refresh_lock = asyncio.Lock()
         self._num_failed_poll_attempts = 0
         # To start, we're neither connected nor disconnected
@@ -135,6 +138,11 @@ class ModbusController(EntityController, UnloadController):
         self._last_slow_read: float | None = None
         # Any ranges of registers which we've detected that we can't read
         self._detected_invalid_ranges = InvalidRegisterRanges()
+        # Of those, the ones something actually wanted. A read can cover registers nobody asked for,
+        # to save reading the ones on either side of them separately, and the inverter refusing one of
+        # those costs us nothing: it just isn't read again. Only a register something wanted is worth
+        # telling anyone about
+        self._unreadable_wanted_ranges = InvalidRegisterRanges()
 
         self._inverter_capacity = connection_type_profile.inverter_model_profile.inverter_capacity(
             self.inverter_details[INVERTER_MODEL]
@@ -386,7 +394,7 @@ class ModbusController(EntityController, UnloadController):
                     )
                     await self._notify_is_connected_changed(is_connected=False)
 
-            if not self._detected_invalid_ranges.is_empty:
+            if not self._unreadable_wanted_ranges.is_empty:
                 # This will update the issue if anything has changed, otherwise it's cheap
                 issue_registry.async_create_issue(
                     self._hass,
@@ -399,7 +407,7 @@ class ModbusController(EntityController, UnloadController):
                     translation_key="invalid_ranges",
                     translation_placeholders={
                         "friendly_name": self.inverter_details[FRIENDLY_NAME],
-                        "ranges": str(self._detected_invalid_ranges),
+                        "ranges": str(self._unreadable_wanted_ranges),
                     },
                 )
 
@@ -415,17 +423,21 @@ class ModbusController(EntityController, UnloadController):
         async_log_entry(self._hass, name=name, message=message, domain=DOMAIN)
 
     def _create_read_ranges(
-        self, max_read: int, is_initial_connection: bool, read_slow: bool
+        self, max_read: int, max_bridge: int, is_initial_connection: bool, read_slow: bool
     ) -> Iterable[tuple[int, int]]:
         """
         Generates a set of read ranges to cover the addresses of all registers on this inverter,
         respecting the maxumum number of registers to read at a time
 
+        :param max_bridge: how many unwanted registers are worth reading to save a whole read
         :returns: Sequence of tuples of (start_address, num_registers_to_read)
         """
 
-        # The idea here is that read operations are expensive (there seems to be a large round-trip time at least
-        # with the W610), but reading additional unneeded registers is relatively cheap (probably < 1ms).
+        # A read costs a fixed amount for the round trip, plus an amount for each register in it, and
+        # reading across the gap between two registers we want trades one against the other. How that
+        # trade goes is a property of the link rather than something to assume: a register costs about
+        # 2ms on a 9600 baud serial line and next to nothing on a socket, so max_bridge is measured.
+        # max_read stays what its name says, the largest read the adapter will take.
 
         # To give some intuition, here are some examples of the groupings we want to achieve, assuming max_read = 5
         # 1,2 / 4,5 -> 1,2,3,4,5 (i.e. to read the registers 1, 2, 4 and 5, we'll do a single read spanning 1-5)
@@ -465,6 +477,9 @@ class ModbusController(EntityController, UnloadController):
             # inside invalid ranges, tested in __init__). This also assumes that read_size != max_read here.
             elif address == start_address + 1 or (
                 address <= start_address + max_read - 1
+                # The registers between the end of the read so far and this one are ones nobody asked
+                # for, and only worth reading if they cost less than the read they save
+                and address - start_address - read_size <= max_bridge
                 and not self._connection_type_profile.overlaps_invalid_range(start_address, address - 1)
                 # Registers which turned out to be unreadable are worth avoiding too, or a read which
                 # bridges one keeps failing and falling back to reading the whole range one at a time
@@ -496,8 +511,18 @@ class ModbusController(EntityController, UnloadController):
         now = time.monotonic()
         read_slow = self._last_slow_read is None or now - self._last_slow_read >= _SLOW_POLL_INTERVAL_SECS
 
+        # Until enough reads have been timed to know what one costs, read only what was asked for.
+        # Guessing wide here is how a poll ends up reaching into registers the inverter doesn't
+        # implement, which costs a failed read and leaves the range remembered as unreadable. Reading
+        # each run on its own is always right, and only lasts until the first few reads have been timed
+        cost = self._read_cost.cost
+        max_bridge = 0 if cost is None else cost.worthwhile_bridge
+
         read_ranges = self._create_read_ranges(
-            self._max_read, is_initial_connection=is_initial_connection, read_slow=read_slow
+            self._max_read,
+            max_bridge,
+            is_initial_connection=is_initial_connection,
+            read_slow=read_slow,
         )
         for start_address, num_reads in read_ranges:
             _LOGGER.debug(
@@ -508,12 +533,14 @@ class ModbusController(EntityController, UnloadController):
                 num_reads,
             )
             try:
+                started_at = time.monotonic()
                 reads = await self._client.read_registers(
                     start_address,
                     num_reads,
                     self._connection_type_profile.register_type,
                     self._slave,
                 )
+                self._read_cost.record(num_reads, time.monotonic() - started_at)
                 read_values.append((start_address, reads))
 
             except ModbusClientFailedError as ex:
@@ -547,13 +574,24 @@ class ModbusController(EntityController, UnloadController):
                         if not _is_illegal_address(ex):
                             raise
 
-                        _LOGGER.warning(
-                            "%s %s: register %s is invalid",
-                            self._client,
-                            self._slave,
-                            address,
-                        )
                         self._detected_invalid_ranges.add(address)
+                        if address in self._data:
+                            _LOGGER.warning(
+                                "%s %s: register %s is invalid",
+                                self._client,
+                                self._slave,
+                                address,
+                            )
+                            self._unreadable_wanted_ranges.add(address)
+                        else:
+                            # Read only to save splitting the read either side of it, so nothing is
+                            # lost by not reading it again
+                            _LOGGER.debug(
+                                "%s %s: register %s, read only to join two others, is invalid",
+                                self._client,
+                                self._slave,
+                                address,
+                            )
                         # Record None at this address, so the sensor gets an 'Unavailable' value
                         read_values.append((address, [None]))
 
