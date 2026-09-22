@@ -85,7 +85,7 @@ def device_info(inv_details: dict[str, Any], device: SubDevice | None = None) ->
         identifiers={inverter_identifier + device.path},  # type: ignore[arg-type]
         name=_name(f"FoxESS - {device.name}"),
         manufacturer="FoxESS",
-        via_device=parent,  # type: ignore[typeddict-item]
+        via_device=parent,  # type: ignore[typeddict-unknown-key]
     )
 
 

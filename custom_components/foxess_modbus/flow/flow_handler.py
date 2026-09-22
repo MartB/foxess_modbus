@@ -11,8 +11,6 @@ from homeassistant import config_entries
 from homeassistant.components.energy import data
 from homeassistant.components.energy.data import BatterySourceType
 from homeassistant.components.energy.data import EnergyPreferencesUpdate
-from homeassistant.components.energy.data import FlowFromGridSourceType
-from homeassistant.components.energy.data import FlowToGridSourceType
 from homeassistant.components.energy.data import GridSourceType
 from homeassistant.components.energy.data import SolarSourceType
 from homeassistant.config_entries import ConfigFlowResult
@@ -272,26 +270,24 @@ class FlowHandler(FlowHandlerMixin, config_entries.ConfigFlow, domain=DOMAIN):
                 ]
             )
 
-        grid_source = GridSourceType(type="grid", flow_from=[], flow_to=[], cost_adjustment_day=0.0)
+        # A grid source carries one import/export pair, and each inverter meters its own, so they get
+        # one each rather than sharing one
         for entity_id_prefix in entity_id_prefixes:
             name_prefix = _prefix_name(entity_id_prefix)
-            grid_source["flow_from"].append(
-                FlowFromGridSourceType(
+            energy_prefs["energy_sources"].append(
+                GridSourceType(
+                    type="grid",
                     stat_energy_from=f"{name_prefix}grid_consumption_energy_total",
+                    stat_energy_to=f"{name_prefix}feed_in_energy_total",
                     stat_cost=None,
                     entity_energy_price=None,
                     number_energy_price=None,
-                )
-            )
-            grid_source["flow_to"].append(
-                FlowToGridSourceType(
-                    stat_energy_to=f"{name_prefix}feed_in_energy_total",
                     stat_compensation=None,
-                    entity_energy_price=None,
-                    number_energy_price=None,
+                    entity_energy_price_export=None,
+                    number_energy_price_export=None,
+                    cost_adjustment_day=0.0,
                 )
             )
-        energy_prefs["energy_sources"].append(grid_source)
 
         await manager.async_update(energy_prefs)
 
