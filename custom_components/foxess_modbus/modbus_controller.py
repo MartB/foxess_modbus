@@ -52,6 +52,9 @@ _UINT16_MAX = 65535
 
 _INVERTER_WRITE_DELAY_SECS = 5
 
+# How often registers marked as slow-moving are re-read
+_SLOW_POLL_INTERVAL_SECS = 60 * 60
+
 
 @dataclass
 class RegisterValue:
@@ -130,6 +133,7 @@ class ModbusController(EntityController, UnloadController):
         self._connection_state = ConnectionState.INITIAL
         self._current_connection_error: str | None = None
         self._force_connection_read = False
+        self._last_slow_read: float | None = None
         # Any ranges of registers which we've detected that we can't read
         self._detected_invalid_ranges = InvalidRegisterRanges()
 
@@ -411,7 +415,9 @@ class ModbusController(EntityController, UnloadController):
             name = "FoxESS - Modbus"
         async_log_entry(self._hass, name=name, message=message, domain=DOMAIN)
 
-    def _create_read_ranges(self, max_read: int, is_initial_connection: bool) -> Iterable[tuple[int, int]]:
+    def _create_read_ranges(
+        self, max_read: int, is_initial_connection: bool, read_slow: bool
+    ) -> Iterable[tuple[int, int]]:
         """
         Generates a set of read ranges to cover the addresses of all registers on this inverter,
         respecting the maxumum number of registers to read at a time
@@ -436,8 +442,11 @@ class ModbusController(EntityController, UnloadController):
         read_size = 0
         # TODO: Do we want to cache the result of this?
         for address, register_value in sorted(self._data.items()):
-            if register_value.poll_type == RegisterPollType.ON_CONNECTION and not is_initial_connection:
-                continue
+            if not is_initial_connection:
+                if register_value.poll_type == RegisterPollType.ON_CONNECTION:
+                    continue
+                if register_value.poll_type == RegisterPollType.SLOWLY and not read_slow:
+                    continue
 
             # Have we found that we can't read this register? Don't try again.
             if address in self._detected_invalid_ranges:
@@ -484,9 +493,12 @@ class ModbusController(EntityController, UnloadController):
 
         read_values: list[tuple[int, Iterable[int | None]]] = []
 
+        is_initial_connection = self._force_connection_read or self._connection_state != ConnectionState.CONNECTED
+        now = time.monotonic()
+        read_slow = self._last_slow_read is None or now - self._last_slow_read >= _SLOW_POLL_INTERVAL_SECS
+
         read_ranges = self._create_read_ranges(
-            self._max_read,
-            is_initial_connection=self._force_connection_read or self._connection_state != ConnectionState.CONNECTED,
+            self._max_read, is_initial_connection=is_initial_connection, read_slow=read_slow
         )
         for start_address, num_reads in read_ranges:
             _LOGGER.debug(
@@ -549,6 +561,8 @@ class ModbusController(EntityController, UnloadController):
         # Only once every range has been read: a poll which threw partway through hasn't honoured the
         # request, so leave it set for the next one
         self._force_connection_read = False
+        if read_slow or is_initial_connection:
+            self._last_slow_read = now
 
         return read_values
 

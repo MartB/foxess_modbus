@@ -134,7 +134,11 @@ class RegisterPollType(IntEnum):
 
     # These must be ordered from least frequent to most frequent
     ON_CONNECTION = 0
-    PERIODICALLY = 1
+    # For things which drift rather than change: a battery's full-charge energy, the limits its BMS is
+    # asking for. Reading them once per connection would leave them stale for as long as the connection
+    # lasts, and every poll spends a read on something which moves over months
+    SLOWLY = 1
+    PERIODICALLY = 2
 
 
 class HassDataEntry(TypedDict):
