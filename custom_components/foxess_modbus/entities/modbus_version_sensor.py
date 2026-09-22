@@ -90,7 +90,8 @@ class ModbusVersionSensor(ModbusEntityMixin, SensorEntity):
 
     @property
     def register_poll_type(self) -> RegisterPollType:
-        return RegisterPollType.ON_CONNECTION
+        # Firmware does change, just not often, and a connection can outlive an update by weeks
+        return RegisterPollType.SLOWLY
 
 
 @dataclass(kw_only=True, **ENTITY_DESCRIPTION_KWARGS)
@@ -157,4 +158,5 @@ class ModbusProtocolVersionSensor(ModbusEntityMixin, SensorEntity):
 
     @property
     def register_poll_type(self) -> RegisterPollType:
-        return RegisterPollType.ON_CONNECTION
+        # Firmware does change, just not often, and a connection can outlive an update by weeks
+        return RegisterPollType.SLOWLY
