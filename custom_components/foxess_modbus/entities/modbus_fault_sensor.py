@@ -227,9 +227,9 @@ H3_PRO_KH_133_FAULTS = FaultSet(
 )
 
 
-# Appendix I of the H3 document (2024-04-18), which names every bit of Fault 1, 2, 4, 5 and 6 and shows
-# Fault 3, 7 and 8 as empty tables. STANDARD_FAULTS can't describe an H3: its last two lists hold BMS fault
-# names, which on an H3 live at 31117-31122 and are read separately as BMS_FAULTS.
+# The H3's own fault bits. Fault 1, 2, 4, 5 and 6 carry them all; 3, 7 and 8 are defined as empty and
+# aren't read. STANDARD_FAULTS can't describe an H3: its last two lists hold BMS fault names, which on an
+# H3 live at 31117-31122 and are read separately as BMS_FAULTS.
 H3_FAULTS = FaultSet(
     faults=[
         [
@@ -328,9 +328,9 @@ H3_FAULTS = FaultSet(
 )
 
 
-# The 2024 H3 document names six BMS fault registers at 31117-31122, mirrored at 37626-37631 in the
-# 2025 one. Only the first three have published bit meanings; the decoder drops bits it has no name for,
-# so reading 4 to 6 as well would add registers without adding any signal.
+# There are six BMS fault registers, at 31117-31122 and mirrored at 37626-37631, but only the first three
+# have any bits defined. The decoder drops bits it has no name for, so reading 4 to 6 as well would add
+# registers without adding any signal.
 BMS_FAULTS = FaultSet(
     faults=[
         [

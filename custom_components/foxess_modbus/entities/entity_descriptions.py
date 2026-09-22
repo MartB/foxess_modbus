@@ -248,13 +248,33 @@ def _identity_entities() -> Iterable[EntityFactory]:
         entity_category=EntityCategory.DIAGNOSTIC,
     )
 
-    # Two codes seen so far, one per battery model. An unrecognised one still reports its number, so it
-    # can be identified and added rather than read as nothing.
+    # Battery family codes. 0x55 and 0x60 have been checked against two batteries, and match what the
+    # official app calls them. An unrecognised code still reports its number, so it can be identified and
+    # added rather than read as nothing.
     assign_device("bms_master_type", BATTERY)
     yield ModbusEnumSensorDescription(
         key="bms_master_type",
         address=[ModbusAddressSpec(holding=37004, models=Inv.H3_PRO_SET | Inv.H3_SMART)],
-        values={85: "ECS2900-2", 96: "EP11"},
+        values={
+            0x52: "HV2600",
+            0x53: "ECS",
+            0x54: "HV2600-2",
+            0x55: "ECS2900-2",
+            0x56: "ECS4100-2",
+            0x57: "Mira-HV25",
+            0x58: "ECS4000-2",
+            0x59: "ECS4300",
+            0x5A: "Mira-HV28",
+            0x5B: "ECS4800",
+            0x5C: "ECS2800",
+            0x5D: "Q.SAVE B4.5F",
+            0x5E: "Q.SAVE B6.4F",
+            0x5F: "EP5",
+            0x60: "EP11",
+            0x61: "EP3",
+            0x62: "EP4",
+            0xFF: "Common Series",
+        },
         name="BMS Master Type",
         icon="mdi:battery-heart-variant",
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -2032,8 +2052,8 @@ def _inverter_entities() -> Iterable[EntityFactory]:
         ],
         fault_set=STANDARD_FAULTS,
     )
-    # An H3 gets its own set: the document names Fault 1, 2, 4, 5 and 6 and leaves 3, 7 and 8 empty, where
-    # STANDARD_FAULTS reads BMS fault names out of 31050/31051
+    # An H3 gets its own set: only Fault 1, 2, 4, 5 and 6 carry anything, where STANDARD_FAULTS reads BMS
+    # fault names out of 31050/31051
     yield _inverter_fault_code(
         addresses=[
             ModbusAddressesSpec(holding=[31044, 31045, 31047, 31048, 31049], models=Inv.H3_SET),
