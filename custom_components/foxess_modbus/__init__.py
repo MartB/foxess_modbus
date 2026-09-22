@@ -15,6 +15,7 @@ from homeassistant.components.energy.data import async_get_manager
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry
+from homeassistant.helpers import entity_registry
 from homeassistant.helpers.typing import UNDEFINED
 from slugify import slugify
 
@@ -209,6 +210,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
+
+
+async def async_remove_config_entry_device(
+    hass: HomeAssistant, _config_entry: ConfigEntry, device_entry: device_registry.DeviceEntry
+) -> bool:
+    """Let the user delete a device we no longer create.
+
+    Home Assistant refuses to remove any device belonging to an integration which doesn't answer this, so
+    without it a sub-device left behind by an older version - a battery module from before the stack was
+    discovered, say - sticks around with no way to get rid of it. Only devices which have no entities left
+    can go, so deleting one can never take an entity's history with it.
+    """
+
+    registry = entity_registry.async_get(hass)
+    entities = entity_registry.async_entries_for_device(registry, device_entry.id, include_disabled_entities=True)
+    return len(entities) == 0
 
 
 async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
