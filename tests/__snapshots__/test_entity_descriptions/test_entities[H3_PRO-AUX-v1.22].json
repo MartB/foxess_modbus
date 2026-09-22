@@ -367,16 +367,6 @@
   },
   {
     "addresses": [
-      37625
-    ],
-    "key": "bms_cycle_count",
-    "name": "BMS Cycle Count",
-    "scale": null,
-    "signed": false,
-    "type": "sensor"
-  },
-  {
-    "addresses": [
       37616
     ],
     "key": "bms_discharge_current_max",

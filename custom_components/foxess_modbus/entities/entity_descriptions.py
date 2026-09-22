@@ -1921,9 +1921,8 @@ def _inverter_entities() -> Iterable[EntityFactory]:
         key="bms_cycle_count",
         addresses=[
             ModbusAddressesSpec(input=[11048], models=Inv.H1_G1 | Inv.KH_PRE119),
-            # Undocumented, but it sits directly after SOH in the BMS1 block and reads 458 on a battery
-            # which reports 91% SoH
-            ModbusAddressesSpec(holding=[37625], models=Inv.H3_PRO_SET | Inv.H3_SMART),
+            # 37625 sits directly after SOH and looked like a cycle count, but it reads 458 and 268 on two
+            # batteries whose official app reports 600 and 144. Whatever it counts, it isn't this.
         ],
         bms_connect_state_address=BMS_CONNECT_STATE_ADDRESS,
         name="BMS Cycle Count",
