@@ -26,6 +26,7 @@ from .inverter_model_spec import EntitySpec
 from .inverter_model_spec import ModbusAddressesSpec
 from .inverter_model_spec import ModbusAddressSpec
 from .modbus_battery_sensor import ModbusBatterySensorDescription
+from .modbus_binary_sensor import ModbusBinarySensorDescription
 from .modbus_clock_drift_sensor import ModbusClockDriftSensorDescription
 from .modbus_fault_sensor import BMS_FAULTS
 from .modbus_fault_sensor import H3_FAULTS
@@ -2717,6 +2718,22 @@ def _inverter_entities() -> Iterable[EntityFactory]:
     )
 
 
+# An inverter in a parallel system reports which role it has taken. 1 on the master, 0 on a slave, and
+# mirrored at 35001. Undocumented: found by reading the same register off a master and a slave.
+PARALLEL_MASTER_ADDRESS = 31146
+
+
+def _parallel_entities() -> Iterable[EntityFactory]:
+    yield ModbusBinarySensorDescription(
+        key="parallel_master",
+        address=[ModbusAddressSpec(holding=PARALLEL_MASTER_ADDRESS, models=Inv.H3_SET)],
+        name="Parallel Master",
+        icon="mdi:crown-outline",
+        icon_func=None,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    )
+
+
 def _bms_entities() -> Iterable[EntityFactory]:
     def _inner(
         index: int | None,
@@ -3470,6 +3487,7 @@ ENTITIES: list[EntityFactory] = sorted(
         _h3_current_voltage_power_entities(),
         _inverter_entities(),
         _bms_entities(),
+        _parallel_entities(),
         _configuration_entities(),
         (description for x in CHARGE_PERIODS for description in x.entity_descriptions),
         REMOTE_CONTROL_DESCRIPTION.entity_descriptions,

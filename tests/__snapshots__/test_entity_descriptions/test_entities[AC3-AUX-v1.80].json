@@ -1294,6 +1294,14 @@
   },
   {
     "addresses": [
+      31146
+    ],
+    "key": "parallel_master",
+    "name": "Parallel Master",
+    "type": "binary-sensor"
+  },
+  {
+    "addresses": [
       31001
     ],
     "key": "pv1_current",
