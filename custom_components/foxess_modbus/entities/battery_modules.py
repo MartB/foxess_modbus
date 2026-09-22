@@ -11,7 +11,10 @@ all: the controller only holds a value for an address some entity asked it to po
 
 import logging
 
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.const import EntityCategory
+from homeassistant.const import Platform
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -22,6 +25,7 @@ from ..common.types import RegisterPollType
 from .devices import BATTERY
 from .devices import assign_device
 from .inverter_model_spec import ModbusAddressesSpec
+from .modbus_entity_mixin import ModbusEntityMixin
 from .modbus_string_sensor import ModbusStringSensor
 from .modbus_string_sensor import ModbusStringSensorDescription
 
@@ -36,6 +40,8 @@ _MASTER_SERIAL_ADDRESS = 37005
 _SLAVE_SERIAL_ADDRESS = 37097
 _SLAVE_SERIAL_STRIDE = 16
 _SLAVE_SERIAL_LENGTH = 8
+# BMS1 Slave1 Version, one register per module, documented as far as Slave 2 like the serials
+_SLAVE_VERSION_ADDRESS = 37033
 # The table has room for far more than any real stack. Cap it so that a garbage read can't create hundreds
 # of entities, and so we stay well clear of BMS1 Voltage at 37609
 _MAX_MODULES = 16
@@ -108,8 +114,10 @@ class _BatteryModuleDiscovery(ModbusControllerEntity):
 
         entities: list[Entity] = []
         for index in range(self._added + 1, count + 1):
-            assign_device(_key(index), BATTERY)
+            assign_device(_serial_key(index), BATTERY)
+            assign_device(_version_key(index), BATTERY)
             entities.append(_module_serial_entity(self._controller, index))
+            entities.append(_ModuleVersionSensor(self._controller, index))
 
         _LOGGER.info("Battery stack has %s module(s): adding %s", count, [x.entity_id for x in entities])
         self._added = count
@@ -118,15 +126,61 @@ class _BatteryModuleDiscovery(ModbusControllerEntity):
         self._controller.request_connection_read()
 
 
-def _key(index: int) -> str:
+def _serial_key(index: int) -> str:
     return f"bms_slave_{index}_serial_number"
+
+
+def _version_key(index: int) -> str:
+    return f"bms_slave_{index}_version"
+
+
+class _ModuleVersionSensor(ModbusEntityMixin, SensorEntity):
+    """The firmware version of one module of the battery stack.
+
+    The register holds the module's position in the stack in the top nibble and its version in the low
+    byte, and that version byte splits into nibbles again: 0x1F is the 1.15 the official app reports, 0x1D
+    is 1.13. Reading the position back is how we know the top of the word isn't part of the version - the
+    five modules of one stack all report 1.15, as 0x101F through 0x501F.
+
+    The low nibble stops at 15, so a module on x.16 would read here as (x+1).0. Nothing has been seen that
+    high to check against.
+    """
+
+    def __init__(self, controller: EntityController, index: int) -> None:
+        self._controller = controller
+        self._index = index
+        self._address = _SLAVE_VERSION_ADDRESS + index - 1
+        self.entity_description = SensorEntityDescription(
+            key=_version_key(index),
+            name=f"BMS Slave {index} Version",
+            icon="mdi:source-branch",
+            entity_category=EntityCategory.DIAGNOSTIC,
+        )
+        self.entity_id = self._get_entity_id(Platform.SENSOR)
+
+    @property
+    def native_value(self) -> str | None:
+        value = self._controller.read(self._address, signed=False)
+        if value is None or value >> 12 != self._index:
+            return None
+        version = value & 0xFF
+        return f"{version >> 4}.{version & 0x0F:02d}"
+
+    @property
+    def addresses(self) -> list[int]:
+        return [self._address]
+
+    @property
+    def register_poll_type(self) -> RegisterPollType:
+        # Slowly rather than on connection, so a module firmware update shows up the same day
+        return RegisterPollType.SLOWLY
 
 
 def _module_serial_entity(controller: EntityController, index: int) -> ModbusStringSensor:
     start = _SLAVE_SERIAL_ADDRESS + _SLAVE_SERIAL_STRIDE * (index - 1)
     addresses = list(range(start, start + _SLAVE_SERIAL_LENGTH))
     description = ModbusStringSensorDescription(
-        key=_key(index),
+        key=_serial_key(index),
         addresses=[ModbusAddressesSpec(holding=addresses, models=Inv.ALL)],
         chars_per_register=2,
         name=f"BMS Slave {index} Serial Number",

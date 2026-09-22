@@ -28,6 +28,7 @@ from custom_components.foxess_modbus.const import INVERTER_CONN
 from custom_components.foxess_modbus.const import INVERTER_MODEL
 from custom_components.foxess_modbus.const import INVERTER_VERSION
 from custom_components.foxess_modbus.const import UNIQUE_ID_PREFIX
+from custom_components.foxess_modbus.entities.battery_modules import _ModuleVersionSensor
 from custom_components.foxess_modbus.entities.devices import BATTERY
 from custom_components.foxess_modbus.entities.devices import BMS
 from custom_components.foxess_modbus.entities.devices import device_for_key
@@ -235,3 +236,28 @@ async def test_poll_types_agree(hass: HomeAssistant) -> None:
                                     f"{modbus_entity.register_poll_type} for '{entity.unique_id}'"
                                 )
                             claimed.setdefault(address, (str(entity.unique_id), modbus_entity.register_poll_type))
+
+
+@pytest.mark.parametrize(
+    ("register", "index", "expected"),
+    [
+        # What the official app reports for these two batteries: every module of the 12e's five-module
+        # stack is on 1.15, behind a different high byte, and the 6e's single module is on 1.13
+        (0x101F, 1, "1.15"),
+        (0x201F, 2, "1.15"),
+        (0x501F, 5, "1.15"),
+        (0x101D, 1, "1.13"),
+        # The high byte is the module's position, so a mismatch means this isn't our module's word
+        (0x201F, 1, None),
+        (0x0000, 1, None),
+    ],
+)
+async def test_battery_module_version(hass: HomeAssistant, register: int, index: int, expected: str | None) -> None:
+    controller = MagicMock()
+    controller.hass = hass
+    controller.inverter_details = {ENTITY_ID_PREFIX: "", UNIQUE_ID_PREFIX: ""}
+    controller.read.side_effect = lambda _address, **_kwargs: register
+
+    sensor = _ModuleVersionSensor(controller, index)
+    assert sensor.native_value == expected
+    assert sensor.addresses == [37033 + index - 1]
