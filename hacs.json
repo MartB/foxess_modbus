@@ -2,7 +2,5 @@
   "name": "FoxESS - Modbus (MartB fork)",
   "hacs": "1.20.0",
   "homeassistant": "2026.3.0",
-  "render_readme": true,
-  "zip_release": true,
-  "filename": "foxess_modbus.zip"
+  "render_readme": true
 }
