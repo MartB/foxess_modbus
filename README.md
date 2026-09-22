@@ -6,6 +6,34 @@
 
 \*\* **This project is not endorsed by, directly affiliated with, maintained, authorized, or sponsored by FoxESS** \*\*
 
+> ## This is a fork
+>
+> A fork of [nathanmarlor/foxess_modbus](https://github.com/nathanmarlor/foxess_modbus), which is the
+> original and where the wiki and most of the documentation still live. Please raise issues with
+> anything below [here](https://github.com/MartB/foxess_modbus/issues) rather than upstream.
+>
+> It keeps the `foxess_modbus` domain, so it replaces the original rather than sitting alongside it, and
+> existing entities, config entries and dashboards carry on working. Uninstall the original first.
+>
+> Most of what it adds came out of running two H3s on firmware 1.93 as a parallel pair:
+>
+> - Talks Modbus through [tmodbus](https://github.com/wlcrs/tmodbus) rather than pymodbus. It is asyncio
+>   throughout, which removed two workarounds for pymodbus's socket handling, and serial goes through
+>   serialx, which Home Assistant ships.
+> - No fixed gap between requests. The silence a serial line needs depends on its speed, and the layer
+>   that knows the speed applies it; Modbus TCP needs none.
+> - Read ranges are chosen by measured cost rather than by `max_read`, which is now just the largest read
+>   the adapter will take. Raising it can no longer make polling slower.
+> - Battery power on H3 1.93 comes from the battery's own voltage and current. The registers meant for it
+>   read zero on a parallel slave and around 1.6x the real figure on a master.
+> - The remote control cluster follows whichever inverter the parallel system made master, rather than
+>   whichever was named in the options.
+> - The battery, its BMSs and its modules appear as devices under the inverter.
+> - More H3 sensors: BMS faults, per-module firmware and serials, the inverter's rated power, and whether
+>   its clock has drifted.
+>
+> It needs Home Assistant 2026.3 or later, because the energy dashboard's grid source changed shape then.
+
 ## Introduction
 
 A Home Assistant custom component which communicates with FoxESS H-series inverters and derivatives without using FoxESS's cloud.
@@ -43,16 +71,15 @@ See the documentation for details.
 
 Migrating from StealthChesnut's HA-FoxESS-Modbus? [Read this](https://github.com/nathanmarlor/foxess_modbus/wiki/Migrating-from-HA-FoxESS-Modbus).
 
-Recommended installation is through [HACS][hacs]:
+This fork isn't in the HACS default list, so add it as a custom repository:
 
-1. Either [use this link][my-hacs], or navigate to HACS integration and:
-   - 'Explore & Download Repositories'
-   - Search for 'FoxESS - Modbus'
-   - Download
-2. Restart Home Assistant
-3. Go to Settings > Devices and Services > Add Integration
-4. Search for and select 'FoxESS - Modbus' (If the integration is not found, empty your browser cache and reload the page)
-5. Proceed with the configuration
+1. In HACS, open the three-dot menu and choose 'Custom repositories'
+2. Add `https://github.com/MartB/foxess_modbus` with the category 'Integration'
+3. Find 'FoxESS - Modbus (MartB fork)' in the list and download it
+4. Restart Home Assistant
+5. Go to Settings > Devices and Services > Add Integration
+6. Search for and select 'FoxESS - Modbus' (If the integration is not found, empty your browser cache and reload the page)
+7. Proceed with the configuration
 
 ## Usage
 
@@ -95,8 +122,8 @@ Sets all charge periods in one service call. The service "Update Charge Period" 
 [buymecoffee]: https://www.buymeacoffee.com/nathanmarlor
 [buymecoffeebadge]: https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg?style=for-the-badge
 [hacs]: https://hacs.xyz
-[my-hacs]: https://my.home-assistant.io/redirect/hacs_repository/?owner=nathanmarlor&repository=foxess_modbus&category=integration
+[my-hacs]: https://my.home-assistant.io/redirect/hacs_repository/?owner=MartB&repository=foxess_modbus&category=integration
 [forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge
 [forum]: https://community.home-assistant.io/
-[releases-shield]: https://img.shields.io/github/release/nathanmarlor/foxess_modbus.svg?style=for-the-badge
-[releases]: https://github.com/nathanmarlor/foxess_modbus/releases
+[releases-shield]: https://img.shields.io/github/release/MartB/foxess_modbus.svg?style=for-the-badge
+[releases]: https://github.com/MartB/foxess_modbus/releases
