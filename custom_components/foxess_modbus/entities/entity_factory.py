@@ -28,13 +28,16 @@ class EntityFactoryMetaclass(FrozenOrThawed, type(ABC)):  # type: ignore
 ENTITY_DESCRIPTION_KWARGS = {"frozen": True}
 
 
-def _specificity(spec: InverterModelSpec) -> int:
-    """Sort key: the fewer models a spec covers, the more specific it is.
+def _spec_rank(spec: InverterModelSpec, inverter_model: Inv) -> tuple[int, int]:
+    """Sort key: which of several specs on one description best describes the given model.
 
-    An Inv is cumulative, so a model can match both a broad family spec and a narrow "this version differs"
-    one. Sorting by this means the narrowest wins.
+    An Inv is cumulative, so a model matches every spec written for a version at or below its own. Rank by
+    the most recent version a spec covers, so a "this firmware moved the register" spec beats the one it
+    supersedes, and only then by how narrowly the spec is scoped. This is the same order match_score uses
+    to choose between descriptions which share a key; the two have to agree, or an entity's addresses and
+    its snapshot would come from different places.
     """
-    return spec.models.value.bit_count()
+    return (-((inverter_model & spec.models).value.bit_length()), spec.models.value.bit_count())
 
 
 class EntityFactory(ABC, metaclass=EntityFactoryMetaclass):  # type: ignore
@@ -114,10 +117,10 @@ class EntityFactory(ABC, metaclass=EntityFactoryMetaclass):  # type: ignore
         set of InverterModelSpec which was given to the entity description. Returns None if this entity is not supported
         on the model/connection type combination.
 
-        If more than one spec matches, the most specific one wins (see _specificity).
+        If more than one spec matches, the best-fitting one wins (see _spec_rank).
         """
 
-        for spec in sorted(address_specs, key=_specificity):
+        for spec in sorted(address_specs, key=lambda x: _spec_rank(x, inverter_model)):
             addresses = spec.addresses_for_inverter_model(register_type=register_type, models=inverter_model)
             if addresses and len(addresses) == 1:
                 return addresses[0]
@@ -134,10 +137,10 @@ class EntityFactory(ABC, metaclass=EntityFactoryMetaclass):  # type: ignore
         set of which was given to the entity description. Returns None if this entity is not supported
         on the model/connection type combination.
 
-        If more than one spec matches, the most specific one wins (see _specificity).
+        If more than one spec matches, the best-fitting one wins (see _spec_rank).
         """
 
-        for spec in sorted(address_specs, key=_specificity):
+        for spec in sorted(address_specs, key=lambda x: _spec_rank(x, inverter_model)):
             addresses = spec.addresses_for_inverter_model(register_type=register_type, models=inverter_model)
             if addresses is not None:
                 return addresses

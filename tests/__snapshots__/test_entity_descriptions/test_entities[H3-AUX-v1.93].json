@@ -588,7 +588,7 @@
   },
   {
     "addresses": [
-      31016
+      39201
     ],
     "key": "eps_rvolt_R",
     "name": "EPS Voltage_R",
@@ -598,7 +598,7 @@
   },
   {
     "addresses": [
-      31017
+      39202
     ],
     "key": "eps_rvolt_S",
     "name": "EPS Voltage_S",
@@ -608,7 +608,7 @@
   },
   {
     "addresses": [
-      31018
+      39203
     ],
     "key": "eps_rvolt_T",
     "name": "EPS Voltage_T",
@@ -618,8 +618,8 @@
   },
   {
     "addresses": [
-      41013,
-      41012
+      46617,
+      46616
     ],
     "key": "export_limit",
     "name": "Export Limit",
@@ -1806,8 +1806,8 @@
   },
   {
     "addresses": [
-      31127,
-      31126
+      39226,
+      39225
     ],
     "key": "load_power",
     "name": "Load Power",
@@ -1817,8 +1817,8 @@
   },
   {
     "addresses": [
-      31129,
-      31128
+      39220,
+      39219
     ],
     "key": "load_power_R",
     "name": "Load Power R",
@@ -1828,8 +1828,8 @@
   },
   {
     "addresses": [
-      31131,
-      31130
+      39222,
+      39221
     ],
     "key": "load_power_S",
     "name": "Load Power S",
@@ -1839,8 +1839,8 @@
   },
   {
     "addresses": [
-      31133,
-      31132
+      39224,
+      39223
     ],
     "key": "load_power_T",
     "name": "Load Power T",
@@ -2161,8 +2161,8 @@
   },
   {
     "addresses": [
-      31056,
-      31055
+      39271,
+      39270
     ],
     "key": "rpower_S",
     "name": "Inverter Power (Apparent)",
@@ -2172,7 +2172,8 @@
   },
   {
     "addresses": [
-      31057
+      39265,
+      39264
     ],
     "key": "rpower_S_R",
     "name": "Inverter Power (Apparent) R",
@@ -2182,7 +2183,8 @@
   },
   {
     "addresses": [
-      31058
+      39267,
+      39266
     ],
     "key": "rpower_S_S",
     "name": "Inverter Power (Apparent) S",
@@ -2192,7 +2194,8 @@
   },
   {
     "addresses": [
-      31059
+      39269,
+      39268
     ],
     "key": "rpower_S_T",
     "name": "Inverter Power (Apparent) T",

@@ -173,8 +173,7 @@
   },
   {
     "addresses": [
-      31052,
-      31051
+      31015
     ],
     "key": "ct2_meter",
     "name": "CT2 Meter",
@@ -204,8 +203,7 @@
   },
   {
     "addresses": [
-      31048,
-      31047
+      31012
     ],
     "key": "eps_rpower",
     "name": "EPS Power",
@@ -531,8 +529,7 @@
   },
   {
     "addresses": [
-      31054,
-      31053
+      31016
     ],
     "key": "load_power",
     "name": "Load Power",
@@ -553,7 +550,7 @@
   },
   {
     "addresses": [
-      30018
+      36003
     ],
     "is_hex": true,
     "key": "manager_version",
@@ -562,7 +559,7 @@
   },
   {
     "addresses": [
-      30016
+      36001
     ],
     "is_hex": true,
     "key": "master_version",
@@ -797,7 +794,8 @@
   },
   {
     "addresses": [
-      31041
+      39284,
+      39283
     ],
     "key": "pv3_power",
     "name": "PV3 Power",
@@ -807,7 +805,7 @@
   },
   {
     "addresses": [
-      31039
+      39074
     ],
     "key": "pv3_voltage",
     "name": "PV3 Voltage",
@@ -845,7 +843,8 @@
   },
   {
     "addresses": [
-      31044
+      39286,
+      39285
     ],
     "key": "pv4_power",
     "name": "PV4 Power",
@@ -855,7 +854,7 @@
   },
   {
     "addresses": [
-      31042
+      39076
     ],
     "key": "pv4_voltage",
     "name": "PV4 Voltage",
@@ -896,8 +895,7 @@
   },
   {
     "addresses": [
-      31046,
-      31045
+      31008
     ],
     "key": "rpower",
     "name": "Inverter Power",
@@ -917,7 +915,7 @@
   },
   {
     "addresses": [
-      30017
+      36002
     ],
     "is_hex": true,
     "key": "slave_version",
