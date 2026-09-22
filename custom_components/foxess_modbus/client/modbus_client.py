@@ -31,10 +31,11 @@ _LOGGER = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-# Some serial devices need a short delay between requests. Also do this for the inverter, just in case it
-# helps. tcp and rtu-over-tcp get it too: some cheap RS485<->TCP bridges can't keep up with back-to-back
-# requests, and answer the next request with the previous one's data. Raise this if one still does
-_MESSAGE_SPACING_SECONDS = 30 / 1000
+# No gap is set between requests. The silence a Modbus RTU line needs between frames is 3.5 character
+# times, which only the layer that knows the line speed can work out: tmodbus computes it from the
+# baudrate for a serial link, and a TCP gateway applies it to the RS485 side itself. A Modbus TCP link
+# needs no gap at all, since its frames carry their own length. A fixed figure here could only be wrong,
+# being far too long at one line speed and far too short at another.
 
 # Delaying for a second after establishing a connection seems to help the inverter stability,
 # see https://github.com/nathanmarlor/foxess_modbus/discussions/132
@@ -78,12 +79,10 @@ class ModbusClient:
         self._config = config
         self._protocol = protocol
 
-        is_delayed = protocol in (SERIAL, TCP, RTU_OVER_TCP) or adapter.connection_type == ConnectionType.LAN
         is_lan_socket = protocol in (TCP, RTU_OVER_TCP) and adapter.connection_type == ConnectionType.LAN
 
         self._connection = ModbusConnection(
             _connection_params(protocol, config),
-            message_spacing=_MESSAGE_SPACING_SECONDS if is_delayed else None,
             connect_delay=_CONNECT_DELAY_SECONDS if is_lan_socket else None,
         )
         # One handle per slave. They are cheap, and all serialize behind the connection's own lock
