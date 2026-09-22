@@ -182,8 +182,7 @@ class RemoteControlCluster:
             return
 
         _LOGGER.warning(
-            "Cluster '%s' was configured with %s as its master, but the inverters make it %s. Following the "
-            "inverters",
+            "Cluster '%s' was configured with %s as its master, but the inverters make it %s. Following the inverters",
             self.cluster_id,
             [_prefix(x) for x, role in self._members if role == REMOTE_CONTROL_ROLE_MASTER],
             _prefix(masters[0]),

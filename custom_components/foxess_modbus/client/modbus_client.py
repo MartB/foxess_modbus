@@ -50,9 +50,7 @@ _MULTIPLE_CONNECTIONS_ADVICE = (
 )
 
 
-def _connection_params(
-    protocol: str, config: dict[str, Any]
-) -> ModbusTcpParams | ModbusUdpParams | ModbusSerialParams:
+def _connection_params(protocol: str, config: dict[str, Any]) -> ModbusTcpParams | ModbusUdpParams | ModbusSerialParams:
     """Describe this connection the way modbus_connection expects it"""
     if protocol == TCP:
         return ModbusTcpParams(host=config["host"], port=config["port"])
