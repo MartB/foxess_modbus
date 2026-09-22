@@ -222,7 +222,15 @@ def _identity_entities() -> Iterable[EntityFactory]:
     # The serial of each module in the stack is read too, but only once the inverter has said how many
     # there are - see entities/battery_modules.py
 
-    def _battery_rating(key: str, name: str, address: int, scale: float, unit: str, icon: str) -> EntityFactory:
+    def _battery_rating(
+        key: str,
+        name: str,
+        address: int,
+        scale: float,
+        unit: str,
+        icon: str,
+        poll_type: RegisterPollType = RegisterPollType.ON_CONNECTION,
+    ) -> EntityFactory:
         assign_device(key, BATTERY)
         return ModbusSensorDescription(
             key=key,
@@ -233,11 +241,20 @@ def _identity_entities() -> Iterable[EntityFactory]:
             signed=False,
             icon=icon,
             entity_category=EntityCategory.DIAGNOSTIC,
-            poll_type=RegisterPollType.ON_CONNECTION,
+            poll_type=poll_type,
             validate=[Min(0)],
         )
 
-    yield _battery_rating("battery_capacity", "Battery Capacity", 31091, 0.1, "Ah", "mdi:battery-heart-variant")
+    # The measured capacity fades with age; the two design figures below are what it was built as
+    yield _battery_rating(
+        "battery_capacity",
+        "Battery Capacity",
+        31091,
+        0.1,
+        "Ah",
+        "mdi:battery-heart-variant",
+        poll_type=RegisterPollType.SLOWLY,
+    )
     yield _battery_rating(
         "battery_design_capacity", "Battery Design Capacity", 31139, 0.1, "Ah", "mdi:battery-heart-variant"
     )
@@ -254,7 +271,7 @@ def _identity_entities() -> Iterable[EntityFactory]:
             signed=False,
             icon="mdi:battery-sync",
             entity_category=EntityCategory.DIAGNOSTIC,
-            poll_type=RegisterPollType.ON_CONNECTION,
+            poll_type=RegisterPollType.SLOWLY,
             validate=[Min(0)],
         )
 
@@ -1653,6 +1670,8 @@ def _inverter_entities() -> Iterable[EntityFactory]:
     def _invbatvolt(index: int | None, addresses: list[ModbusAddressesSpec]) -> EntityFactory:
         key_suffix = f"_{index}" if index is not None else ""
         name_infix = f" {index}" if index is not None else ""
+        device = BATTERY if index is None else BMS[index]
+        assign_device(f"invbatvolt{key_suffix}", device)
         return ModbusSensorDescription(
             key=f"invbatvolt{key_suffix}",
             addresses=addresses,
@@ -1682,6 +1701,8 @@ def _inverter_entities() -> Iterable[EntityFactory]:
     def _invbatcurrent(index: int | None, scale: float, addresses: list[ModbusAddressesSpec]) -> EntityFactory:
         key_suffix = f"_{index}" if index is not None else ""
         name_infix = f" {index}" if index is not None else ""
+        device = BATTERY if index is None else BMS[index]
+        assign_device(f"invbatcurrent{key_suffix}", device)
         return ModbusSensorDescription(
             key=f"invbatcurrent{key_suffix}",
             addresses=addresses,
@@ -1718,6 +1739,8 @@ def _inverter_entities() -> Iterable[EntityFactory]:
     def _invbatpower(index: int | None, addresses: list[ModbusAddressesSpec]) -> Iterable[ModbusSensorDescription]:
         key_suffix = f"_{index}" if index is not None else ""
         name_infix = f" {index}" if index is not None else ""
+        device = BATTERY if index is None else BMS[index]
+        assign_device(f"invbatpower{key_suffix}", device)
         yield ModbusSensorDescription(
             key=f"invbatpower{key_suffix}",
             addresses=addresses,
@@ -1729,6 +1752,7 @@ def _inverter_entities() -> Iterable[EntityFactory]:
             round_to=0.01,
             validate=[Range(-100, 100)],
         )
+        assign_device(f"battery_discharge{key_suffix}", device)
         yield ModbusSensorDescription(
             key=f"battery_discharge{key_suffix}",
             addresses=addresses,
@@ -1742,6 +1766,7 @@ def _inverter_entities() -> Iterable[EntityFactory]:
             post_process=lambda v: v if v > 0 else 0,
             validate=[Range(0, 100)],
         )
+        assign_device(f"battery_charge{key_suffix}", device)
         yield ModbusSensorDescription(
             key=f"battery_charge{key_suffix}",
             addresses=addresses,
@@ -2104,6 +2129,7 @@ def _inverter_entities() -> Iterable[EntityFactory]:
     )
 
     def _battery_charge_total(addresses: list[ModbusAddressesSpec], scale: float) -> EntityFactory:
+        assign_device("battery_charge_total", BATTERY)
         return ModbusSensorDescription(
             key="battery_charge_total",
             addresses=addresses,
@@ -2151,6 +2177,7 @@ def _inverter_entities() -> Iterable[EntityFactory]:
     )
 
     def _battery_charge_today(addresses: list[ModbusAddressesSpec], scale: float) -> EntityFactory:
+        assign_device("battery_charge_today", BATTERY)
         return ModbusSensorDescription(
             key="battery_charge_today",
             addresses=addresses,
@@ -2182,6 +2209,7 @@ def _inverter_entities() -> Iterable[EntityFactory]:
     )
 
     def _battery_discharge_total(addresses: list[ModbusAddressesSpec], scale: float) -> EntityFactory:
+        assign_device("battery_discharge_total", BATTERY)
         return ModbusSensorDescription(
             key="battery_discharge_total",
             addresses=addresses,
@@ -2229,6 +2257,7 @@ def _inverter_entities() -> Iterable[EntityFactory]:
     )
 
     def _battery_discharge_today(addresses: list[ModbusAddressesSpec], scale: float) -> EntityFactory:
+        assign_device("battery_discharge_today", BATTERY)
         return ModbusSensorDescription(
             key="battery_discharge_today",
             addresses=addresses,
@@ -2799,16 +2828,16 @@ def _bms_entities() -> Iterable[EntityFactory]:
         # against a 14.4 kWh design and 91% SoH, which is the design energy scaled by SoH. It's what the
         # battery holds when full, so it's a measurement rather than an energy total. The key is left alone
         # to keep existing history.
-        yield ModbusBatterySensorDescription(
+        yield ModbusSensorDescription(
             key=f"bms_kwh_remaining{key_suffix}",
             addresses=bms_kwh_remaining,
-            bms_connect_state_address=bms_connect_state_address,
             name=f"BMS{name_infix} Full Charge Energy",
             state_class=SensorStateClass.MEASUREMENT,
             native_unit_of_measurement="kWh",
             icon="mdi:battery-heart-variant",
             scale=0.01,
             signed=False,
+            poll_type=RegisterPollType.SLOWLY,
             validate=[Min(0)],
         )
         yield ModbusBatterySensorDescription(
@@ -2981,21 +3010,39 @@ def _bms_entities() -> Iterable[EntityFactory]:
     # the BMS1 block, but 37615/37616 read back the same as the documented 31039/31040 (max charge/discharge
     # current), which puts the pair above them as the voltage limits.
     def _bms_limits() -> Iterable[EntityFactory]:
-        def _limit(key: str, address: int, name: str, unit: str, icon: str, limit: float) -> EntityFactory:
+        def _limit(
+            key: str,
+            address: int,
+            name: str,
+            unit: str,
+            icon: str,
+            limit: float,
+            poll_type: RegisterPollType = RegisterPollType.PERIODICALLY,
+        ) -> EntityFactory:
+            common = {
+                "key": key,
+                "addresses": [ModbusAddressesSpec(holding=[address], models=Inv.H3_PRO_SET | Inv.H3_SMART)],
+                "name": name,
+                "state_class": SensorStateClass.MEASUREMENT,
+                "native_unit_of_measurement": unit,
+                "scale": 0.1,
+                "round_to": 0.1,
+                "signed": False,
+                "icon": icon,
+                "validate": [Range(0, limit)],
+            }
+            # The ones not on the normal poll are plain sensors: a battery sensor would put the BMS
+            # connect state register on that schedule too, and every other battery sensor needs it polled
+            if poll_type != RegisterPollType.PERIODICALLY:
+                return ModbusSensorDescription(poll_type=poll_type, **common)  # type: ignore[arg-type]
             return ModbusBatterySensorDescription(
-                key=key,
-                addresses=[ModbusAddressesSpec(holding=[address], models=Inv.H3_PRO_SET | Inv.H3_SMART)],
                 bms_connect_state_address=BMS_CONNECT_STATE_ADDRESS,
-                name=name,
-                state_class=SensorStateClass.MEASUREMENT,
-                native_unit_of_measurement=unit,
-                scale=0.1,
-                round_to=0.1,
-                signed=False,
-                icon=icon,
-                validate=[Range(0, limit)],
+                **common,  # type: ignore[arg-type]
             )
 
+        # 324.0/252.0 V on a 90 cell battery and 432.0/336.0 V on a 120 cell one: 3.6 V and 2.8 V per
+        # cell, so these are a fixed configuration rather than anything which moves. The current limits
+        # below can taper, so they keep being polled.
         yield _limit(
             "bms_charge_voltage_max",
             37613,
@@ -3003,6 +3050,7 @@ def _bms_entities() -> Iterable[EntityFactory]:
             "V",
             "mdi:battery-arrow-up-outline",
             1000,
+            poll_type=RegisterPollType.SLOWLY,
         )
         yield _limit(
             "bms_discharge_voltage_min",
@@ -3011,6 +3059,7 @@ def _bms_entities() -> Iterable[EntityFactory]:
             "V",
             "mdi:battery-arrow-down-outline",
             1000,
+            poll_type=RegisterPollType.SLOWLY,
         )
         yield _limit(
             "bms_charge_current_max",

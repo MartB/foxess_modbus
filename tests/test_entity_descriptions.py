@@ -19,12 +19,14 @@ from custom_components.foxess_modbus.common.entity_controller import ModbusContr
 from custom_components.foxess_modbus.common.types import ConnectionType
 from custom_components.foxess_modbus.common.types import Inv
 from custom_components.foxess_modbus.common.types import InverterModel
+from custom_components.foxess_modbus.common.types import RegisterPollType
 from custom_components.foxess_modbus.const import DOMAIN
 from custom_components.foxess_modbus.const import ENTITY_ID_PREFIX
 from custom_components.foxess_modbus.const import FRIENDLY_NAME
 from custom_components.foxess_modbus.const import INVERTER_BASE
 from custom_components.foxess_modbus.const import INVERTER_CONN
 from custom_components.foxess_modbus.const import INVERTER_MODEL
+from custom_components.foxess_modbus.const import INVERTER_VERSION
 from custom_components.foxess_modbus.const import UNIQUE_ID_PREFIX
 from custom_components.foxess_modbus.entities.devices import BATTERY
 from custom_components.foxess_modbus.entities.devices import BMS
@@ -197,3 +199,39 @@ async def test_clock_drift(hass: HomeAssistant, offset: int) -> None:
     # A clock which has never been set reads as nothing, rather than as a drift of decades
     registers[49222] = 0
     assert sensor.native_value is None
+
+
+async def test_poll_types_agree(hass: HomeAssistant) -> None:
+    """Entities sharing a register have to agree on how often it's read.
+
+    The controller keeps one poll type per address and asserts on a mismatch, so a description which reads
+    something once per connection can't share an address with one which wants it every poll.
+    """
+
+    controller = MagicMock()
+    controller.hass = hass
+
+    for profile in INVERTER_PROFILES.values():
+        for connection_type, connection_type_profile in profile.connection_types.items():
+            for version in connection_type_profile.versions:
+                controller.inverter_details = {
+                    INVERTER_BASE: profile.model,
+                    INVERTER_CONN: connection_type,
+                    INVERTER_VERSION: None if version is None else str(version),
+                    ENTITY_ID_PREFIX: "",
+                    UNIQUE_ID_PREFIX: "",
+                }
+
+                claimed: dict[int, tuple[str, RegisterPollType]] = {}
+                for entity_type in [SensorEntity, BinarySensorEntity, SelectEntity, NumberEntity]:
+                    for entity in create_entities(entity_type, controller, filter_depends_on_other_entites=False):
+                        modbus_entity = cast(ModbusControllerEntity, entity)
+                        for address in modbus_entity.addresses:
+                            owner, poll_type = claimed.get(address, (None, modbus_entity.register_poll_type))
+                            if poll_type != modbus_entity.register_poll_type:
+                                raise AssertionError(
+                                    f"{profile.model}/{connection_type}/{version}: register {address} is "
+                                    f"{poll_type} for '{owner}' but "
+                                    f"{modbus_entity.register_poll_type} for '{entity.unique_id}'"
+                                )
+                            claimed.setdefault(address, (str(entity.unique_id), modbus_entity.register_poll_type))
