@@ -19,6 +19,8 @@ jobs:
           name: ${{ github.ref_name }}
           tag: ${{ github.ref_name }}
           version: ${{ github.ref_name }}
+          # Otherwise it leaves a draft, which HACS can't see and only a human can publish
+          publish: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v6.0.3
