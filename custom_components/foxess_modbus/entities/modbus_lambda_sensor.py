@@ -83,6 +83,11 @@ class ModbusLambdaSensor(ModbusEntityMixin, SensorEntity):
         self.entity_description = entity_description
         self._source_entity_ids = source_entity_ids
         self._method = method
+        # Every other entity here names itself from its key. Without this Home Assistant falls back to
+        # building an id out of the device and entity names, which for a sub-device reads
+        # sensor.foxess_battery_h3_12e_battery_cycles_h3_12e. An entity which is already in the registry
+        # keeps the id it has, so this only affects new ones.
+        self.entity_id = self._get_entity_id(Platform.SENSOR)
 
     async def async_added_to_hass(self) -> None:
         """Add update callback after being added to hass."""
