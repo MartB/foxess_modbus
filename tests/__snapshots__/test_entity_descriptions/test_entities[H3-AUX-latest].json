@@ -33,22 +33,11 @@
   },
   {
     "addresses": [
-      37610
+      31035
     ],
     "key": "bat_current",
     "name": "Battery Current",
     "scale": 0.1,
-    "signed": true,
-    "type": "sensor"
-  },
-  {
-    "addresses": [
-      39229,
-      39228
-    ],
-    "key": "bat_current",
-    "name": "Battery Current",
-    "scale": 0.001,
     "signed": true,
     "type": "sensor"
   },
@@ -241,7 +230,7 @@
   },
   {
     "addresses": [
-      39227
+      31034
     ],
     "key": "batvolt",
     "name": "Battery Voltage",

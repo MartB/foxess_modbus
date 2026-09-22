@@ -2885,16 +2885,12 @@ def _bms_entities() -> Iterable[EntityFactory]:
             bms_connect_state_address=BMS_CONNECT_STATE_ADDRESS,
             batvolt=[
                 ModbusAddressesSpec(input=[11034], models=Inv.H1_G1 | Inv.KH_PRE119),
-                # H3 >= 1.93 reads these from the Pro BMS registers rather than the legacy 31034/31035
-                # below, except for voltage, which comes from the same block as the current so that the two
-                # are read in the same breath
-                ModbusAddressesSpec(holding=[39227], models=Inv.H3_193),
-                ModbusAddressesSpec(holding=[37609], models=Inv.H1_G2_144 | Inv.H3_193),
+                ModbusAddressesSpec(holding=[37609], models=Inv.H1_G2_144),
                 ModbusAddressesSpec(holding=[31034], models=Inv.H3_SET),
             ],
             bat_current=[
                 ModbusAddressesSpec(input=[11035], models=Inv.H1_G1 | Inv.KH_PRE119),
-                ModbusAddressesSpec(holding=[37610], models=Inv.H1_G2_144 | Inv.H3_193),
+                ModbusAddressesSpec(holding=[37610], models=Inv.H1_G2_144),
                 ModbusAddressesSpec(holding=[31035], models=Inv.H3_SET),
             ],
             battery_soc=[
@@ -3025,27 +3021,6 @@ def _bms_entities() -> Iterable[EntityFactory]:
         name="Battery Cycles",
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:battery-sync",
-    )
-
-    # The inverter reports the battery current as a 32-bit value in mA, against the BMS's 0.1 A, and reads
-    # it in the same breath as the voltage above. It also signs it the way everything else here does -
-    # positive while discharging - where the BMS register it replaces is the other way round.
-    yield from on_device(
-        BATTERY,
-        [
-            ModbusBatterySensorDescription(
-                key="bat_current",
-                addresses=[ModbusAddressesSpec(holding=[39229, 39228], models=Inv.H3_193)],
-                bms_connect_state_address=BMS_CONNECT_STATE_ADDRESS,
-                name="Battery Current",
-                device_class=SensorDeviceClass.CURRENT,
-                state_class=SensorStateClass.MEASUREMENT,
-                native_unit_of_measurement="A",
-                scale=0.001,
-                round_to=0.01,
-                validate=[Range(-100, 100)],
-            )
-        ],
     )
 
     # The envelope the BMS is asking the inverter to stay inside. The 2025 spec leaves 37613-37616 out of
