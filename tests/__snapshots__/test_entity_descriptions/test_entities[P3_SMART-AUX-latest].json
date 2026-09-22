@@ -399,6 +399,27 @@
   },
   {
     "addresses": [
+      37004
+    ],
+    "key": "bms_master_type",
+    "name": "BMS Master Type",
+    "type": "sensor",
+    "values": {
+      "85": "ECS2900-2",
+      "96": "EP11"
+    }
+  },
+  {
+    "addresses": [
+      37003
+    ],
+    "key": "bms_master_version",
+    "name": "BMS Master Version",
+    "type": "sensor",
+    "version_format": "decimal_bytes"
+  },
+  {
+    "addresses": [
       46021,
       46020
     ],
@@ -1228,19 +1249,19 @@
     "addresses": [
       36003
     ],
-    "is_hex": true,
     "key": "manager_version",
     "name": "Version: Manager",
-    "type": "sensor"
+    "type": "sensor",
+    "version_format": "hex"
   },
   {
     "addresses": [
       36001
     ],
-    "is_hex": true,
     "key": "master_version",
     "name": "Version: Master",
-    "type": "sensor"
+    "type": "sensor",
+    "version_format": "hex"
   },
   {
     "addresses": [
@@ -1596,10 +1617,10 @@
     "addresses": [
       36002
     ],
-    "is_hex": true,
     "key": "slave_version",
     "name": "Version: Slave",
-    "type": "sensor"
+    "type": "sensor",
+    "version_format": "hex"
   },
   {
     "addresses": [

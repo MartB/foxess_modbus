@@ -53,6 +53,8 @@
   "bms_kwh_remaining_1": "bms/1",
   "bms_kwh_remaining_2": "bms/2",
   "bms_master_serial_number": "battery",
+  "bms_master_type": "battery",
+  "bms_master_version": "battery",
   "bms_pwr_limit_charge": "battery",
   "bms_pwr_limit_charge_1": "bms/1",
   "bms_pwr_limit_charge_2": "bms/2",

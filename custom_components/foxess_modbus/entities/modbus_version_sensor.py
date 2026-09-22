@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any
 from typing import cast
 
@@ -18,12 +19,24 @@ from .inverter_model_spec import ModbusAddressSpec
 from .modbus_entity_mixin import ModbusEntityMixin
 
 
+class VersionFormat(StrEnum):
+    """How the bytes of a version register are laid out"""
+
+    # The whole word is decimal: 223 is 2.23
+    DECIMAL = "decimal"
+    # A byte each, rendered as hex: 0x0214 is 2.14
+    HEX = "hex"
+    # A byte each, rendered as decimal: 0x0214 is the 2.020 the app shows for a BMS master, and 0x010D
+    # the 1.013 it shows for another
+    DECIMAL_BYTES = "decimal_bytes"
+
+
 @dataclass(kw_only=True, **ENTITY_DESCRIPTION_KWARGS)
 class ModbusVersionSensorDescription(SensorEntityDescription, EntityFactory):  # type: ignore[misc]
     """Description for ModbusVersionSensor"""
 
     address: list[ModbusAddressSpec]
-    is_hex: bool
+    version_format: VersionFormat
 
     @property
     def entity_type(self) -> type[Entity]:
@@ -48,7 +61,7 @@ class ModbusVersionSensorDescription(SensorEntityDescription, EntityFactory):  #
             "key": self.key,
             "name": self.name,
             "addresses": addresses,
-            "is_hex": self.is_hex,
+            "version_format": self.version_format,
         }
 
 
@@ -73,16 +86,13 @@ class ModbusVersionSensor(ModbusEntityMixin, SensorEntity):
         if value is None:
             return None
 
-        # These have the format x.yy
+        if entity_description.version_format == VersionFormat.HEX:
+            return f"{value >> 8:X}.{value & 0xFF:02X}"
 
-        if entity_description.is_hex:
-            major = value >> 8
-            minor = value & 0xFF
-            return f"{major:X}.{minor:02X}"
+        if entity_description.version_format == VersionFormat.DECIMAL_BYTES:
+            return f"{value >> 8}.{value & 0xFF:03d}"
 
-        major = value // 100
-        minor = value % 100
-        return f"{major}.{minor:02}"
+        return f"{value // 100}.{value % 100:02}"
 
     @property
     def addresses(self) -> list[int]:
@@ -129,7 +139,7 @@ class ModbusProtocolVersionSensorDescription(SensorEntityDescription, EntityFact
 class ModbusProtocolVersionSensor(ModbusEntityMixin, SensorEntity):
     """Exposes the inverter's 32-bit Fox modbus document version, e.g. V1.05.03.00
 
-    The bytes are BCD-style, so they're rendered in hex, the same as the is_hex version sensors above.
+    The bytes are BCD-style, so they're rendered in hex, the same as VersionFormat.HEX above.
     """
 
     def __init__(

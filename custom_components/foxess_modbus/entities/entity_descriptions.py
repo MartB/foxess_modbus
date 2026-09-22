@@ -28,6 +28,7 @@ from .inverter_model_spec import ModbusAddressSpec
 from .modbus_battery_sensor import ModbusBatterySensorDescription
 from .modbus_binary_sensor import ModbusBinarySensorDescription
 from .modbus_clock_drift_sensor import ModbusClockDriftSensorDescription
+from .modbus_enum_sensor import ModbusEnumSensorDescription
 from .modbus_fault_sensor import BMS_FAULTS
 from .modbus_fault_sensor import H3_FAULTS
 from .modbus_fault_sensor import H3_PRO_KH_133_FAULTS
@@ -47,6 +48,7 @@ from .modbus_sensor import ModbusSensorDescription
 from .modbus_string_sensor import ModbusStringSensorDescription
 from .modbus_version_sensor import ModbusProtocolVersionSensorDescription
 from .modbus_version_sensor import ModbusVersionSensorDescription
+from .modbus_version_sensor import VersionFormat
 from .modbus_work_mode_select import ModbusWorkModeSelectDescription
 from .remote_control_description import REMOTE_CONTROL_DESCRIPTION
 from .validation import Min
@@ -72,11 +74,13 @@ BMS_CONNECT_STATE_ADDRESS = [
 
 def _version_entities() -> Iterable[EntityFactory]:
     # Named so that they sort together
-    def _master_version(address: list[ModbusAddressSpec], is_hex: bool) -> ModbusVersionSensorDescription:
+    def _master_version(
+        address: list[ModbusAddressSpec], version_format: VersionFormat
+    ) -> ModbusVersionSensorDescription:
         return ModbusVersionSensorDescription(
             key="master_version",
             address=address,
-            is_hex=is_hex,
+            version_format=version_format,
             name="Version: Master",
             icon="mdi:source-branch",
         )
@@ -87,7 +91,7 @@ def _version_entities() -> Iterable[EntityFactory]:
             ModbusAddressSpec(holding=30016, models=Inv.H1_G1 | Inv.H1_LAN | Inv.H3_SET),
             ModbusAddressSpec(holding=36001, models=Inv.H3_PRO_PRE122),
         ],
-        is_hex=False,
+        version_format=VersionFormat.DECIMAL,
     )
     yield _master_version(
         address=[
@@ -96,14 +100,16 @@ def _version_entities() -> Iterable[EntityFactory]:
                 holding=36001, models=Inv.H1_G2_SET | Inv.KH_133 | Inv.H3_PRO_122 | Inv.H3_SMART | Inv.EVO
             ),
         ],
-        is_hex=True,
+        version_format=VersionFormat.HEX,
     )
 
-    def _slave_version(address: list[ModbusAddressSpec], is_hex: bool) -> ModbusVersionSensorDescription:
+    def _slave_version(
+        address: list[ModbusAddressSpec], version_format: VersionFormat
+    ) -> ModbusVersionSensorDescription:
         return ModbusVersionSensorDescription(
             key="slave_version",
             address=address,
-            is_hex=is_hex,
+            version_format=version_format,
             name="Version: Slave",
             icon="mdi:source-branch",
         )
@@ -114,7 +120,7 @@ def _version_entities() -> Iterable[EntityFactory]:
             ModbusAddressSpec(holding=30017, models=Inv.H1_G1 | Inv.H1_LAN | Inv.H3_SET),
             ModbusAddressSpec(holding=36002, models=Inv.H3_PRO_PRE122),
         ],
-        is_hex=False,
+        version_format=VersionFormat.DECIMAL,
     )
     yield _slave_version(
         address=[
@@ -123,14 +129,16 @@ def _version_entities() -> Iterable[EntityFactory]:
                 holding=36002, models=Inv.H1_G2_SET | Inv.KH_133 | Inv.H3_PRO_122 | Inv.H3_SMART | Inv.EVO
             ),
         ],
-        is_hex=True,
+        version_format=VersionFormat.HEX,
     )
 
-    def _manager_version(address: list[ModbusAddressSpec], is_hex: bool) -> ModbusVersionSensorDescription:
+    def _manager_version(
+        address: list[ModbusAddressSpec], version_format: VersionFormat
+    ) -> ModbusVersionSensorDescription:
         return ModbusVersionSensorDescription(
             key="manager_version",
             address=address,
-            is_hex=is_hex,
+            version_format=version_format,
             name="Version: Manager",
             icon="mdi:source-branch",
         )
@@ -140,7 +148,7 @@ def _version_entities() -> Iterable[EntityFactory]:
             ModbusAddressSpec(input=10018, models=Inv.H1_G1 | Inv.KH_PRE119),
             ModbusAddressSpec(holding=30018, models=Inv.H1_G1 | Inv.H1_LAN),
         ],
-        is_hex=False,
+        version_format=VersionFormat.DECIMAL,
     )
     yield _manager_version(
         address=[
@@ -149,7 +157,7 @@ def _version_entities() -> Iterable[EntityFactory]:
                 holding=36003, models=Inv.H1_G2_SET | Inv.KH_133 | Inv.H3_PRO_SET | Inv.H3_SMART | Inv.EVO
             ),
         ],
-        is_hex=True,
+        version_format=VersionFormat.HEX,
     )
 
     # The Fox modbus document version, U32 at 39000 (spec V1.05.03.00 table 3-5 #121), so that registers can
@@ -229,6 +237,29 @@ def _identity_entities() -> Iterable[EntityFactory]:
     )
     # The serial of each module in the stack is read too, but only once the inverter has said how many
     # there are - see entities/battery_modules.py
+
+    assign_device("bms_master_version", BATTERY)
+    yield ModbusVersionSensorDescription(
+        key="bms_master_version",
+        address=[ModbusAddressSpec(holding=37003, models=Inv.H3_PRO_SET | Inv.H3_SMART)],
+        version_format=VersionFormat.DECIMAL_BYTES,
+        name="BMS Master Version",
+        icon="mdi:source-branch",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    )
+
+    # Two codes seen so far, one per battery model. An unrecognised one still reports its number, so it
+    # can be identified and added rather than read as nothing.
+    assign_device("bms_master_type", BATTERY)
+    yield ModbusEnumSensorDescription(
+        key="bms_master_type",
+        address=[ModbusAddressSpec(holding=37004, models=Inv.H3_PRO_SET | Inv.H3_SMART)],
+        values={85: "ECS2900-2", 96: "EP11"},
+        name="BMS Master Type",
+        icon="mdi:battery-heart-variant",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        poll_type=RegisterPollType.SLOWLY,
+    )
 
     def _battery_rating(
         key: str,

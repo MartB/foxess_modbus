@@ -484,19 +484,19 @@
     "addresses": [
       36003
     ],
-    "is_hex": true,
     "key": "manager_version",
     "name": "Version: Manager",
-    "type": "sensor"
+    "type": "sensor",
+    "version_format": "hex"
   },
   {
     "addresses": [
       36001
     ],
-    "is_hex": true,
     "key": "master_version",
     "name": "Version: Master",
-    "type": "sensor"
+    "type": "sensor",
+    "version_format": "hex"
   },
   {
     "addresses": [
@@ -727,10 +727,10 @@
     "addresses": [
       36002
     ],
-    "is_hex": true,
     "key": "slave_version",
     "name": "Version: Slave",
-    "type": "sensor"
+    "type": "sensor",
+    "version_format": "hex"
   },
   {
     "addresses": [
