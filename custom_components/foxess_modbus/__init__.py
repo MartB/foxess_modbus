@@ -60,47 +60,63 @@ from .services import write_registers_service
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
 
-def _link_remote_control_clusters(controllers: list[ModbusController]) -> None:
-    """Link each remote-control cluster's master to its slaves.
+def _prefix(controller: ModbusController) -> Any:
+    return controller.inverter_details.get(ENTITY_ID_PREFIX)
+
+
+def _manager_of(controller: ModbusController) -> RemoteControlManager | None:
+    manager = controller.remote_control_manager
+    if not isinstance(manager, RemoteControlManager):
+        _LOGGER.warning("%s doesn't support remote control, so can't be part of a cluster", _prefix(controller))
+        return None
+    return manager
+
+
+class RemoteControlCluster:
+    """The inverters making up one remote-control cluster, and which of them drives it.
 
     Only the master drives remote control: it sizes its single command from the combined battery limits of
-    the whole cluster, and its slaves keep their own managers disabled so they can't fight it. Inverters
-    left as 'standalone' (the default) aren't touched.
+    the whole cluster, and its slaves keep their own managers disabled so they can't fight it.
+
+    Which inverters form a cluster is configuration, since nothing on the wire says so. Which of them is in
+    charge is not: a parallel system nominates its own master and reports it in a register. That can only be
+    read once the inverters are connected, so the cluster is wired up as configured to begin with, and
+    wired again from the inverters once they have all said what they are.
     """
 
-    def prefix(controller: ModbusController) -> Any:
-        return controller.inverter_details.get(ENTITY_ID_PREFIX)
+    def __init__(self, cluster_id: str, members: list[tuple[ModbusController, str]]) -> None:
+        self.cluster_id = cluster_id
+        self._members = members
+        self._followed_inverters = False
+        for controller, _role in members:
+            manager = _manager_of(controller)
+            if manager is not None:
+                manager.cluster = self
 
-    def manager_of(controller: ModbusController) -> RemoteControlManager | None:
-        manager = controller.remote_control_manager
-        if not isinstance(manager, RemoteControlManager):
-            _LOGGER.warning("%s doesn't support remote control, so can't be part of a cluster", prefix(controller))
-            return None
-        return manager
+    def apply(self, roles: dict[ModbusController, str]) -> None:
+        """Wire the cluster up so that the inverters given the master role drive the rest"""
 
-    clusters: dict[str, dict[str, list[ModbusController]]] = {}
-    for controller in controllers:
-        role = controller.inverter_details.get(REMOTE_CONTROL_ROLE)
-        if role in (REMOTE_CONTROL_ROLE_MASTER, REMOTE_CONTROL_ROLE_SLAVE):
-            cluster_id = controller.inverter_details.get(REMOTE_CONTROL_CLUSTER, REMOTE_CONTROL_CLUSTER_DEFAULT)
-            cluster = clusters.setdefault(cluster_id, {REMOTE_CONTROL_ROLE_MASTER: [], REMOTE_CONTROL_ROLE_SLAVE: []})
-            cluster[role].append(controller)
-
-    for cluster_id, cluster in clusters.items():
-        masters = cluster[REMOTE_CONTROL_ROLE_MASTER]
-        slaves = [(x, manager_of(x)) for x in cluster[REMOTE_CONTROL_ROLE_SLAVE]]
+        masters = [x for x, role in roles.items() if role == REMOTE_CONTROL_ROLE_MASTER]
+        slaves = [(x, _manager_of(x)) for x, role in roles.items() if role == REMOTE_CONTROL_ROLE_SLAVE]
 
         if len(masters) > 1:
             _LOGGER.warning(
                 "Cluster '%s' has more than one master (%s). Using the first",
-                cluster_id,
-                [prefix(x) for x in masters],
+                self.cluster_id,
+                [_prefix(x) for x in masters],
             )
 
-        master_manager = manager_of(masters[0]) if masters else None
-        master_prefix = prefix(masters[0]) if master_manager is not None else None
+        master_manager = _manager_of(masters[0]) if masters else None
+        master_prefix = _prefix(masters[0]) if master_manager is not None else None
         if master_manager is None:
-            _LOGGER.warning("Cluster '%s' has no usable master, so its slaves are left disabled", cluster_id)
+            _LOGGER.warning("Cluster '%s' has no usable master, so its slaves are left disabled", self.cluster_id)
+
+        # Wiring the cluster again has to start from nothing, or an inverter demoted to slave would keep
+        # the slaves it collected while it was master
+        for controller, _role in self._members:
+            manager = _manager_of(controller)
+            if manager is not None:
+                manager.clear_cluster_links()
 
         # Slaves are disabled whether or not the cluster has a master, so that they can't drive remote
         # control on their own
@@ -109,19 +125,87 @@ def _link_remote_control_clusters(controllers: list[ModbusController]) -> None:
             if manager is None:
                 continue
             manager.set_is_cluster_slave(True)
-            manager.cluster_info = {"role": "slave", "cluster": cluster_id, "master": master_prefix, "slaves": []}
+            manager.cluster_info = {
+                "role": "slave",
+                "cluster": self.cluster_id,
+                "master": master_prefix,
+                "slaves": [],
+            }
             if master_manager is not None:
                 master_manager.add_cluster_slave(manager)
-                slave_prefixes.append(prefix(controller))
+                slave_prefixes.append(_prefix(controller))
 
         if master_manager is not None:
             master_manager.cluster_info = {
                 "role": "master",
-                "cluster": cluster_id,
+                "cluster": self.cluster_id,
                 "master": master_prefix,
                 "slaves": slave_prefixes,
             }
-            _LOGGER.info("Remote control cluster '%s': master %s, slaves %s", cluster_id, master_prefix, slave_prefixes)
+            _LOGGER.info(
+                "Remote control cluster '%s': master %s, slaves %s", self.cluster_id, master_prefix, slave_prefixes
+            )
+
+    def role_detected(self) -> None:
+        """One of the inverters has said whether it is the parallel system's master.
+
+        Nothing happens until they all have: a cluster wired from a half-read answer would be wrong in a
+        way that is hard to notice.
+        """
+
+        if self._followed_inverters:
+            return
+
+        detected: dict[ModbusController, str] = {}
+        for controller, _role in self._members:
+            manager = _manager_of(controller)
+            if manager is None or manager.detected_is_master is None:
+                return
+            detected[controller] = (
+                REMOTE_CONTROL_ROLE_MASTER if manager.detected_is_master else REMOTE_CONTROL_ROLE_SLAVE
+            )
+
+        masters = [x for x, role in detected.items() if role == REMOTE_CONTROL_ROLE_MASTER]
+        if len(masters) != 1:
+            _LOGGER.warning(
+                "The inverters in cluster '%s' report %s masters between them, so the configured roles are "
+                "kept. Check that they are all part of the same parallel system",
+                self.cluster_id,
+                len(masters),
+            )
+            self._followed_inverters = True
+            return
+
+        self._followed_inverters = True
+        if detected == dict(self._members):
+            return
+
+        _LOGGER.warning(
+            "Cluster '%s' was configured with %s as its master, but the inverters make it %s. Following the "
+            "inverters",
+            self.cluster_id,
+            [_prefix(x) for x, role in self._members if role == REMOTE_CONTROL_ROLE_MASTER],
+            _prefix(masters[0]),
+        )
+        self.apply(detected)
+
+
+def _link_remote_control_clusters(controllers: list[ModbusController]) -> list[RemoteControlCluster]:
+    """Gather the configured clusters and wire each one up"""
+
+    members: dict[str, list[tuple[ModbusController, str]]] = {}
+    for controller in controllers:
+        role = controller.inverter_details.get(REMOTE_CONTROL_ROLE)
+        if role in (REMOTE_CONTROL_ROLE_MASTER, REMOTE_CONTROL_ROLE_SLAVE):
+            cluster_id = controller.inverter_details.get(REMOTE_CONTROL_CLUSTER, REMOTE_CONTROL_CLUSTER_DEFAULT)
+            members.setdefault(cluster_id, []).append((controller, role))
+
+    clusters = []
+    for cluster_id, cluster_members in members.items():
+        cluster = RemoteControlCluster(cluster_id, cluster_members)
+        cluster.apply(dict(cluster_members))
+        clusters.append(cluster)
+    return clusters
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

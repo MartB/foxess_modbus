@@ -1,11 +1,11 @@
 import logging
 from typing import Callable
+from typing import Protocol
 
 from .common.entity_controller import EntityController
 from .common.entity_controller import EntityRemoteControlManager
 from .common.entity_controller import ModbusControllerEntity
 from .common.entity_controller import RemoteControlMode
-from .const import ENTITY_ID_PREFIX
 from .const import REMOTE_CONTROL_FALLBACK_DEFAULT
 from .const import REMOTE_CONTROL_FALLBACK_FEED_IN_FIRST
 from .const import REMOTE_CONTROL_FALLBACK_SELF_USE
@@ -34,6 +34,13 @@ _SETPOINT_DEAD_BAND = 100
 _PARALLEL_MASTER_ADDRESS = 31146
 
 
+class _Cluster(Protocol):
+    """As much of the remote-control cluster as the manager needs to know about"""
+
+    def role_detected(self) -> None:
+        """Tell the cluster that one of its inverters has said what it is"""
+
+
 class RemoteControlManager(EntityRemoteControlManager, ModbusControllerEntity):
     def __init__(
         self, controller: EntityController, addresses: ModbusRemoteControlAddressConfig, poll_rate: int
@@ -55,8 +62,9 @@ class RemoteControlManager(EntityRemoteControlManager, ModbusControllerEntity):
         # once every controller exists
         self._cluster_slaves: list["RemoteControlManager"] = []
         self._is_cluster_slave = False
+        # Set by the cluster this belongs to, if any, so it can be told what the inverter reports
+        self.cluster: "_Cluster | None" = None
         self.cluster_info: dict[str, object] | None = None
-        self._warned_about_role = False
 
         fallback = controller.inverter_details.get(REMOTE_CONTROL_FALLBACK_WORK_MODE, REMOTE_CONTROL_FALLBACK_DEFAULT)
         self._fallback_work_mode = _FALLBACK_WORK_MODES.get(fallback, WorkMode.BACK_UP)
@@ -68,6 +76,9 @@ class RemoteControlManager(EntityRemoteControlManager, ModbusControllerEntity):
             *self._addresses.invbatpower,
             *(self._addresses.pwr_limit_bat_up if self._addresses.pwr_limit_bat_up is not None else []),
             *self._addresses.pv_voltages,
+            # Which inverter the parallel system put in charge. Read here rather than left to the Parallel
+            # Master sensor, which is a diagnostic and may well be disabled
+            _PARALLEL_MASTER_ADDRESS,
         ]
         self._modbus_addresses = [x for x in modbus_addresses if x is not None]
 
@@ -92,6 +103,16 @@ class RemoteControlManager(EntityRemoteControlManager, ModbusControllerEntity):
 
     def set_is_cluster_slave(self, value: bool) -> None:
         self._is_cluster_slave = value
+
+    def clear_cluster_links(self) -> None:
+        self._cluster_slaves = []
+        self._is_cluster_slave = False
+
+    @property
+    def detected_is_master(self) -> bool | None:
+        """Whether the inverter says it is the parallel system's master, or None before it has said"""
+        value = self._controller.read(_PARALLEL_MASTER_ADDRESS, signed=False)
+        return None if value is None else value > 0
 
     # The own_* methods below read this inverter's own registers; the _cluster_* ones combine them across
     # the master and its slaves. For a standalone inverter the cluster is just itself, so they're equivalent.
@@ -433,33 +454,19 @@ class RemoteControlManager(EntityRemoteControlManager, ModbusControllerEntity):
         finally:
             self._is_updating = False
 
-    def _check_configured_role(self) -> None:
-        """Warn if the inverter disagrees with the role it was configured with.
+    def _report_role_to_cluster(self) -> None:
+        """Tell the cluster what the inverter says this one is.
 
-        Getting this backwards is silent otherwise: the cluster would drive whichever inverter was
-        nominated here, regardless of which one the inverters themselves put in charge.
+        The cluster decides what to do with it: it can only act once every one of its members has
+        answered, since a single answer doesn't say which of them is in charge.
         """
 
-        if self._warned_about_role or self.cluster_info is None:
+        if self.cluster is None or self.detected_is_master is None:
             return
-        # None if nothing is polling it, which is the case unless the Parallel Master sensor is enabled
-        is_master = self._controller.read(_PARALLEL_MASTER_ADDRESS, signed=False)
-        if is_master is None:
-            return
-
-        self._warned_about_role = True
-        if (is_master > 0) == (not self._is_cluster_slave):
-            return
-        _LOGGER.warning(
-            "%s is configured as the remote control cluster %s, but the inverter reports itself as the "
-            "parallel system %s. Remote control will drive the wrong inverter until this is corrected",
-            self._controller.inverter_details.get(ENTITY_ID_PREFIX),
-            "slave" if self._is_cluster_slave else "master",
-            "master" if is_master > 0 else "slave",
-        )
+        self.cluster.role_detected()
 
     async def became_connected_callback(self) -> None:
-        self._check_configured_role()
+        self._report_role_to_cluster()
         self._remote_control_enabled = False
         if self._is_updating:
             return
