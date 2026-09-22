@@ -3007,12 +3007,12 @@ def _bms_entities() -> Iterable[EntityFactory]:
                 ModbusAddressesSpec(holding=[37632], models=Inv.H1_G2_SET | Inv.KH_133),
                 ModbusAddressesSpec(holding=[31123], models=Inv.H3_180),
             ],
-            # Pwr_limit_Bat_Up
+            # Pwr_limit_Bat_Dn
             bms_pwr_limit_discharge=[
                 ModbusAddressesSpec(holding=[44011], models=Inv.H3_SET),
                 ModbusAddressesSpec(holding=[46019, 46018], models=Inv.H3_PRO_SET | Inv.H3_SMART),
             ],
-            # Pwr_limit_Bat_Dn
+            # Pwr_limit_Bat_Up, which remote control reads as the most the battery will take
             bms_pwr_limit_charge=[
                 ModbusAddressesSpec(holding=[44012], models=Inv.H3_SET),
                 ModbusAddressesSpec(holding=[46021, 46020], models=Inv.H3_PRO_SET | Inv.H3_SMART),
