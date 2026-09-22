@@ -342,7 +342,11 @@ def _identity_entities() -> Iterable[EntityFactory]:
     # these agree with: an H3-12.0-E reports 12000 W.
     yield ModbusSensorDescription(
         key="inverter_rated_power",
-        addresses=[ModbusAddressesSpec(holding=[39054, 39053], models=Inv.H3_PRO_SET | Inv.H3_SMART)],
+        addresses=[
+            # Undocumented, but it reads 11999 on an H3-12.0-E and 5999 on an H3-6.0-E
+            ModbusAddressesSpec(holding=[44007], models=Inv.H3_SET),
+            ModbusAddressesSpec(holding=[39054, 39053], models=Inv.H3_PRO_SET | Inv.H3_SMART),
+        ],
         name="Rated Power",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement="W",

@@ -794,6 +794,16 @@
   },
   {
     "addresses": [
+      44007
+    ],
+    "key": "inverter_rated_power",
+    "name": "Rated Power",
+    "scale": null,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       30029,
       30030,
       30031,
