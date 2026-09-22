@@ -8,6 +8,7 @@
   "battery_charge_2": "bms/2",
   "battery_charge_today": "battery",
   "battery_charge_total": "battery",
+  "battery_cycles": "battery",
   "battery_design_capacity": "battery",
   "battery_design_energy": "battery",
   "battery_discharge": "battery",

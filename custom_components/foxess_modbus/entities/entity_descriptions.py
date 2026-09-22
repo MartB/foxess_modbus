@@ -53,6 +53,11 @@ from .validation import Range
 # mypy: disable-error-code="call-arg"
 
 
+# A battery's nameplate energy is its rated amp-hours at 3.2 V per cell, but amp-hour throughput accrues
+# at the average cell voltage over a discharge, nearer 3.1 V. See _battery_cycles.
+_NAMEPLATE_CELL_VOLTS = 3.2
+_AVERAGE_CELL_VOLTS = 3.1
+
 BMS_CONNECT_STATE_ADDRESS = [
     ModbusAddressSpec(input=11058, models=Inv.H1_G1 | Inv.KH_PRE119),
     ModbusAddressSpec(holding=31029, models=Inv.H1_G1 | Inv.H1_LAN),
@@ -2983,6 +2988,34 @@ def _bms_entities() -> Iterable[EntityFactory]:
             bms_pwr_limit_discharge=[],
             bms_pwr_limit_charge=[],
         ),
+    )
+
+    # The official app shows a cycle count which isn't in any register. It works out as cumulative charge
+    # throughput divided by rated capacity, with the energy converted to amp-hours at the average cell
+    # voltage over a discharge rather than the 3.2 V the nameplate energy is rated at. Solving for that
+    # voltage on two batteries - 90 cells and 120 cells, different vendors - gives 3.096 V and 3.114 V, so
+    # a flat 3.1 V reproduces the app to within half a percent: 599 against 600, and 145 against 144.
+    #
+    # It's an estimate of a number the app derives, not a reading, so it won't track the app exactly.
+    def _battery_cycles(inputs: list[float]) -> float | None:
+        # A source which the user has disabled is skipped rather than failing the lot, so check we were
+        # given both of ours before dividing one by the other
+        if len(inputs) != 2:
+            return None
+        charge_total, design_energy = inputs
+        if design_energy <= 0:
+            return None
+        return round(charge_total / design_energy * (_NAMEPLATE_CELL_VOLTS / _AVERAGE_CELL_VOLTS), 1)
+
+    assign_device("battery_cycles", BATTERY)
+    yield ModbusLambdaSensorDescription(
+        key="battery_cycles",
+        models=[EntitySpec(register_types=[RegisterType.HOLDING], models=Inv.H3_SET)],
+        sources=["battery_charge_total", "battery_design_energy"],
+        method=_battery_cycles,
+        name="Battery Cycles",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        icon="mdi:battery-sync",
     )
 
     # The inverter reports the battery current as a 32-bit value in mA, against the BMS's 0.1 A, and reads

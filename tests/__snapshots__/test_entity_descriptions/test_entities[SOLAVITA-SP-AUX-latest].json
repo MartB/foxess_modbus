@@ -61,6 +61,15 @@
     "type": "sensor"
   },
   {
+    "key": "battery_cycles",
+    "name": "Battery Cycles",
+    "sources": [
+      "battery_charge_total",
+      "battery_design_energy"
+    ],
+    "type": "lambda"
+  },
+  {
     "addresses": [
       31139
     ],
