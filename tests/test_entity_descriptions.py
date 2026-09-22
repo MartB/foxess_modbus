@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Any
 from typing import Iterable
 from typing import cast
@@ -10,11 +11,13 @@ from homeassistant.components.select import SelectEntity
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.util import dt as dt_util
 from syrupy.assertion import SnapshotAssertion
 from syrupy.extensions.json import JSONSnapshotExtension
 
 from custom_components.foxess_modbus.common.entity_controller import ModbusControllerEntity
 from custom_components.foxess_modbus.common.types import ConnectionType
+from custom_components.foxess_modbus.common.types import Inv
 from custom_components.foxess_modbus.common.types import InverterModel
 from custom_components.foxess_modbus.const import DOMAIN
 from custom_components.foxess_modbus.const import ENTITY_ID_PREFIX
@@ -27,6 +30,9 @@ from custom_components.foxess_modbus.entities.devices import BATTERY
 from custom_components.foxess_modbus.entities.devices import BMS
 from custom_components.foxess_modbus.entities.devices import device_for_key
 from custom_components.foxess_modbus.entities.entity_descriptions import ENTITIES
+from custom_components.foxess_modbus.entities.inverter_model_spec import ModbusAddressesSpec
+from custom_components.foxess_modbus.entities.modbus_clock_drift_sensor import ModbusClockDriftSensor
+from custom_components.foxess_modbus.entities.modbus_clock_drift_sensor import ModbusClockDriftSensorDescription
 from custom_components.foxess_modbus.entities.modbus_entity_mixin import device_info
 from custom_components.foxess_modbus.inverter_profiles import INVERTER_PROFILES
 from custom_components.foxess_modbus.inverter_profiles import Version
@@ -150,3 +156,44 @@ def test_sub_devices_hang_off_the_inverter() -> None:
     for info in (inverter, battery, bms):
         assert identifier(info)[0] == DOMAIN
         assert identifier(info)[3] == "Garage"
+
+
+@pytest.mark.parametrize("offset", [0, -30, 90])
+async def test_clock_drift(hass: HomeAssistant, offset: int) -> None:
+    """The inverter keeps local wall-clock time, so drift is that against Home Assistant's"""
+
+    inverter_time = dt_util.now() + timedelta(seconds=offset)
+    registers = dict(
+        zip(
+            range(49222, 49228),
+            (
+                inverter_time.year,
+                inverter_time.month,
+                inverter_time.day,
+                inverter_time.hour,
+                inverter_time.minute,
+                inverter_time.second,
+            ),
+            strict=True,
+        )
+    )
+
+    controller = MagicMock()
+    controller.hass = hass
+    controller.inverter_details = {ENTITY_ID_PREFIX: "", UNIQUE_ID_PREFIX: ""}
+    controller.read.side_effect = lambda address, **_kwargs: registers.get(address)
+
+    description = ModbusClockDriftSensorDescription(
+        key="inverter_clock_drift",
+        addresses=[ModbusAddressesSpec(holding=list(registers), models=Inv.ALL)],
+        name="Clock Drift",
+    )
+    sensor = ModbusClockDriftSensor(controller, description, list(registers))
+
+    # The registers only carry whole seconds, so allow for the truncation
+    assert sensor.native_value is not None
+    assert abs(sensor.native_value - offset) <= 1
+
+    # A clock which has never been set reads as nothing, rather than as a drift of decades
+    registers[49222] = 0
+    assert sensor.native_value is None

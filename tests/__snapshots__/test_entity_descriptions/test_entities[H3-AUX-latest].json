@@ -1503,6 +1503,19 @@
   },
   {
     "addresses": [
+      49222,
+      49223,
+      49224,
+      49225,
+      49226,
+      49227
+    ],
+    "key": "inverter_clock_drift",
+    "name": "Clock Drift",
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       31044,
       31045,
       31047,

@@ -26,6 +26,7 @@ from .inverter_model_spec import EntitySpec
 from .inverter_model_spec import ModbusAddressesSpec
 from .inverter_model_spec import ModbusAddressSpec
 from .modbus_battery_sensor import ModbusBatterySensorDescription
+from .modbus_clock_drift_sensor import ModbusClockDriftSensorDescription
 from .modbus_fault_sensor import H3_PRO_KH_133_FAULTS
 from .modbus_fault_sensor import STANDARD_FAULTS
 from .modbus_fault_sensor import FaultSet
@@ -152,6 +153,25 @@ def _version_entities() -> Iterable[EntityFactory]:
         ],
         name="Version: Protocol",
         icon="mdi:file-document-outline",
+    )
+
+
+def _clock_entities() -> Iterable[EntityFactory]:
+    """The inverter's own clock, which nothing else surfaces"""
+
+    # 49000 holds the same time as a 32-bit epoch, but these six say outright that they're local time, with
+    # no offset to guess at
+    yield ModbusClockDriftSensorDescription(
+        key="inverter_clock_drift",
+        addresses=[
+            ModbusAddressesSpec(holding=list(range(49222, 49228)), models=Inv.H3_PRO_SET | Inv.H3_SMART),
+        ],
+        name="Clock Drift",
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="s",
+        icon="mdi:clock-alert-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
     )
 
 
@@ -3368,6 +3388,7 @@ ENTITIES: list[EntityFactory] = sorted(
     itertools.chain(
         _version_entities(),
         _identity_entities(),
+        _clock_entities(),
         _pv_entities(),
         _h1_current_voltage_power_entities(),
         _h3_current_voltage_power_entities(),
