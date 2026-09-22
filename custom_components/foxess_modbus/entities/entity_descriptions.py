@@ -3,6 +3,7 @@
 import itertools
 from typing import Iterable
 
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.number import NumberDeviceClass
 from homeassistant.components.number import NumberMode
 from homeassistant.components.sensor import SensorDeviceClass
@@ -83,6 +84,7 @@ def _version_entities() -> Iterable[EntityFactory]:
             version_format=version_format,
             name="Version: Master",
             icon="mdi:source-branch",
+            entity_category=EntityCategory.DIAGNOSTIC,
         )
 
     yield _master_version(
@@ -112,6 +114,7 @@ def _version_entities() -> Iterable[EntityFactory]:
             version_format=version_format,
             name="Version: Slave",
             icon="mdi:source-branch",
+            entity_category=EntityCategory.DIAGNOSTIC,
         )
 
     yield _slave_version(
@@ -141,6 +144,7 @@ def _version_entities() -> Iterable[EntityFactory]:
             version_format=version_format,
             name="Version: Manager",
             icon="mdi:source-branch",
+            entity_category=EntityCategory.DIAGNOSTIC,
         )
 
     yield _manager_version(
@@ -169,6 +173,7 @@ def _version_entities() -> Iterable[EntityFactory]:
         ],
         name="Version: Protocol",
         icon="mdi:file-document-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
     )
 
 
@@ -182,10 +187,8 @@ def _clock_entities() -> Iterable[EntityFactory]:
         addresses=[
             ModbusAddressesSpec(holding=list(range(49222, 49228)), models=Inv.H3_PRO_SET | Inv.H3_SMART),
         ],
-        name="Clock Drift",
-        device_class=SensorDeviceClass.DURATION,
-        state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement="s",
+        name="Clock Drifted",
+        device_class=BinarySensorDeviceClass.PROBLEM,
         icon="mdi:clock-alert-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
     )

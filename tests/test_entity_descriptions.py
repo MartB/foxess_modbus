@@ -161,8 +161,8 @@ def test_sub_devices_hang_off_the_inverter() -> None:
         assert identifier(info)[3] == "Garage"
 
 
-@pytest.mark.parametrize("offset", [0, -30, 90])
-async def test_clock_drift(hass: HomeAssistant, offset: int) -> None:
+@pytest.mark.parametrize(("offset", "expected_on"), [(0, False), (-30, False), (90, True), (-300, True)])
+async def test_clock_drift(hass: HomeAssistant, offset: int, expected_on: bool) -> None:
     """The inverter keeps local wall-clock time, so drift is that against Home Assistant's"""
 
     inverter_time = dt_util.now() + timedelta(seconds=offset)
@@ -189,17 +189,23 @@ async def test_clock_drift(hass: HomeAssistant, offset: int) -> None:
     description = ModbusClockDriftSensorDescription(
         key="inverter_clock_drift",
         addresses=[ModbusAddressesSpec(holding=list(registers), models=Inv.ALL)],
-        name="Clock Drift",
+        name="Clock Drifted",
     )
     sensor = ModbusClockDriftSensor(controller, description, list(registers))
 
-    # The registers only carry whole seconds, so allow for the truncation
-    assert sensor.native_value is not None
-    assert abs(sensor.native_value - offset) <= 1
+    # Only a drift worth acting on turns it on; a second either way is how the clock reads, not drift
+    assert sensor.is_on is expected_on
+
+    # How far it has drifted is still there to look at. The registers only carry whole seconds, so allow
+    # for the truncation
+    attributes = sensor.extra_state_attributes
+    assert attributes is not None
+    assert abs(attributes["drift_seconds"] - offset) <= 1
 
     # A clock which has never been set reads as nothing, rather than as a drift of decades
     registers[49222] = 0
-    assert sensor.native_value is None
+    assert sensor.is_on is None
+    assert sensor.extra_state_attributes is None
 
 
 async def test_poll_types_agree(hass: HomeAssistant) -> None:

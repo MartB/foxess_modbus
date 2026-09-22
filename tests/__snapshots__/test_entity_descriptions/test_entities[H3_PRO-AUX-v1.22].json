@@ -1263,8 +1263,8 @@
       49227
     ],
     "key": "inverter_clock_drift",
-    "name": "Clock Drift",
-    "type": "sensor"
+    "name": "Clock Drifted",
+    "type": "binary-sensor"
   },
   {
     "addresses": [
