@@ -28,6 +28,7 @@ from .inverter_model_spec import ModbusAddressSpec
 from .modbus_battery_sensor import ModbusBatterySensorDescription
 from .modbus_clock_drift_sensor import ModbusClockDriftSensorDescription
 from .modbus_fault_sensor import BMS_FAULTS
+from .modbus_fault_sensor import H3_FAULTS
 from .modbus_fault_sensor import H3_PRO_KH_133_FAULTS
 from .modbus_fault_sensor import STANDARD_FAULTS
 from .modbus_fault_sensor import FaultSet
@@ -1996,9 +1997,16 @@ def _inverter_entities() -> Iterable[EntityFactory]:
             ModbusAddressesSpec(
                 holding=[31031, 31032, 31034, 31035, 31036, 31037, 31038], models=Inv.H1_G1 | Inv.H1_LAN
             ),
-            ModbusAddressesSpec(holding=[31044, 31045, 31047, 31048, 31049, 31050, 31051], models=Inv.H3_SET),
         ],
         fault_set=STANDARD_FAULTS,
+    )
+    # An H3 gets its own set: the document names Fault 1, 2, 4, 5 and 6 and leaves 3, 7 and 8 empty, where
+    # STANDARD_FAULTS reads BMS fault names out of 31050/31051
+    yield _inverter_fault_code(
+        addresses=[
+            ModbusAddressesSpec(holding=[31044, 31045, 31047, 31048, 31049], models=Inv.H3_SET),
+        ],
+        fault_set=H3_FAULTS,
     )
 
     yield _inverter_fault_code(
