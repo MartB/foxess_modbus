@@ -140,7 +140,12 @@ REMOTE_CONTROL_DESCRIPTION = ModbusRemoteControlFactory(
                 work_mode=49203,
                 work_mode_map=_PRO_WORK_MODE_MAP,
                 max_soc=46610,
-                invbatpower=[39238, 39237],
+                # 39237/39238 read zero on a parallel slave and around 1.6x the real drain on a master,
+                # so the battery's own voltage and current are used instead. Both are tenths, so their
+                # product is hundredths of a watt
+                invbatpower=[31034],
+                invbatpower_multiply_by=[31035],
+                invbatpower_multiply_scale=0.01,
                 battery_soc=[31141],
                 pwr_limit_bat_up=[46021, 46020],
                 pv_voltages=[31000, 31003],

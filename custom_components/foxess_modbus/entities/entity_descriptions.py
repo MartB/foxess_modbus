@@ -1802,7 +1802,12 @@ def _inverter_entities() -> Iterable[EntityFactory]:
         addresses=[ModbusAddressesSpec(holding=[39234, 39233], models=Inv.H3_PRO_HW | Inv.H3_SMART)],
     )
 
-    def _invbatpower(index: int | None, addresses: list[ModbusAddressesSpec]) -> Iterable[ModbusSensorDescription]:
+    def _invbatpower(
+        index: int | None,
+        addresses: list[ModbusAddressesSpec],
+        multiply_by: list[ModbusAddressesSpec] | None = None,
+        multiply_scale: float = 1.0,
+    ) -> Iterable[ModbusSensorDescription]:
         key_suffix = f"_{index}" if index is not None else ""
         name_infix = f" {index}" if index is not None else ""
         device = BATTERY if index is None else BMS[index]
@@ -1810,6 +1815,8 @@ def _inverter_entities() -> Iterable[EntityFactory]:
         yield ModbusSensorDescription(
             key=f"invbatpower{key_suffix}",
             addresses=addresses,
+            multiply_by=multiply_by,
+            multiply_scale=multiply_scale,
             name=f"Inverter Battery{name_infix} Power",
             device_class=SensorDeviceClass.POWER,
             state_class=SensorStateClass.MEASUREMENT,
@@ -1822,6 +1829,8 @@ def _inverter_entities() -> Iterable[EntityFactory]:
         yield ModbusSensorDescription(
             key=f"battery_discharge{key_suffix}",
             addresses=addresses,
+            multiply_by=multiply_by,
+            multiply_scale=multiply_scale,
             name=f"Battery{name_infix} Discharge",
             device_class=SensorDeviceClass.POWER,
             state_class=SensorStateClass.MEASUREMENT,
@@ -1836,6 +1845,8 @@ def _inverter_entities() -> Iterable[EntityFactory]:
         yield ModbusSensorDescription(
             key=f"battery_charge{key_suffix}",
             addresses=addresses,
+            multiply_by=multiply_by,
+            multiply_scale=multiply_scale,
             name=f"Battery{name_infix} Charge",
             device_class=SensorDeviceClass.POWER,
             state_class=SensorStateClass.MEASUREMENT,
@@ -1875,7 +1886,16 @@ def _inverter_entities() -> Iterable[EntityFactory]:
             ),
             ModbusAddressesSpec(holding=[31036], models=Inv.H3_SET),
             ModbusAddressesSpec(holding=[39238, 39237], models=Inv.H3_PRO_SET | Inv.H3_SMART | Inv.EVO),
+            # H3 1.93 reports a battery power which doesn't survive checking. A slave in a parallel system
+            # leaves 39237/39238 at zero while its battery is plainly working, and on a master they run
+            # about 1.6x the drain its state of charge actually shows. The battery's own voltage and
+            # current do agree with that drain, so the power is taken from those. Wins on specificity over
+            # the two entries above, which this firmware also matches
+            ModbusAddressesSpec(holding=[31034], models=Inv.H3_193),
         ],
+        multiply_by=[ModbusAddressesSpec(holding=[31035], models=Inv.H3_193)],
+        # Volts and amps are both tenths, so their product is hundredths of a watt
+        multiply_scale=0.01,
     )
 
     grid_phase_freq_address_map = {

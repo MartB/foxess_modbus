@@ -53,8 +53,8 @@
   },
   {
     "addresses": [
-      39238,
-      39237
+      31034,
+      31035
     ],
     "key": "battery_charge",
     "name": "Battery Charge",
@@ -136,8 +136,8 @@
   },
   {
     "addresses": [
-      39238,
-      39237
+      31034,
+      31035
     ],
     "key": "battery_discharge",
     "name": "Battery Discharge",
@@ -1583,8 +1583,8 @@
   },
   {
     "addresses": [
-      39238,
-      39237
+      31034,
+      31035
     ],
     "key": "invbatpower",
     "name": "Inverter Battery Power",

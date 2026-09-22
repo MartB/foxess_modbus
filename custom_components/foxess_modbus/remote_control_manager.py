@@ -75,6 +75,7 @@ class RemoteControlManager(EntityRemoteControlManager, ModbusControllerEntity):
             self._addresses.max_soc,
             *self._addresses.invbatpower,
             *(self._addresses.pwr_limit_bat_up if self._addresses.pwr_limit_bat_up is not None else []),
+            *(self._addresses.invbatpower_multiply_by or []),
             *self._addresses.pv_voltages,
             # Which inverter the parallel system put in charge. Read here rather than left to the Parallel
             # Master sensor, which is a diagnostic and may well be disabled
@@ -126,7 +127,13 @@ class RemoteControlManager(EntityRemoteControlManager, ModbusControllerEntity):
         return abs(value) if value is not None else None
 
     def own_current_battery_charge_power_negative(self) -> int | None:
-        return self._read(self._addresses.invbatpower, signed=True)
+        value = self._read(self._addresses.invbatpower, signed=self._addresses.invbatpower_multiply_by is None)
+        if value is None or self._addresses.invbatpower_multiply_by is None:
+            return value
+        multiplier = self._read(self._addresses.invbatpower_multiply_by, signed=True)
+        if multiplier is None:
+            return None
+        return round(value * multiplier * self._addresses.invbatpower_multiply_scale)
 
     def own_soc(self) -> int | None:
         # If there are multiple batteries, then we'll take the max. That doesn't stop the inverter charging the

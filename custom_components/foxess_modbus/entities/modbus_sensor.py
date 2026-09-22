@@ -36,6 +36,10 @@ class ModbusSensorDescription(SensorEntityDescription, EntityFactory):  # type: 
     """Custom sensor description"""
 
     addresses: list[ModbusAddressesSpec]
+    # A second value to multiply the first by, for a reading the inverter doesn't hold itself. Read as
+    # signed, and scaled by multiply_scale before the usual scale is applied
+    multiply_by: list[ModbusAddressesSpec] | None = None
+    multiply_scale: float = 1.0
     scale: float | None = None
     round_to: float | None = None
     post_process: Callable[[float], float] | None = None
@@ -56,12 +60,23 @@ class ModbusSensorDescription(SensorEntityDescription, EntityFactory):  # type: 
     ) -> Entity | None:
         addresses = self._addresses_for_inverter_model(self.addresses, inverter_model, register_type)
         round_to = self.round_to if controller.inverter_details.get(ROUND_SENSOR_VALUES, False) else None
-        return ModbusSensor(controller, self, addresses, round_to) if addresses is not None else None
+        multiply_by = (
+            self._addresses_for_inverter_model(self.multiply_by, inverter_model, register_type)
+            if self.multiply_by is not None
+            else None
+        )
+        if addresses is None:
+            return None
+        return ModbusSensor(controller, self, addresses, round_to, multiply_by)
 
     def serialize(self, inverter_model: Inv, register_type: RegisterType) -> dict[str, Any] | None:
         addresses = self._addresses_for_inverter_model(self.addresses, inverter_model, register_type)
         if addresses is None:
             return None
+        if self.multiply_by is not None:
+            multiply_by = self._addresses_for_inverter_model(self.multiply_by, inverter_model, register_type)
+            if multiply_by is not None:
+                addresses = [*addresses, *multiply_by]
 
         return {
             "type": "sensor",
@@ -84,12 +99,14 @@ class ModbusSensor(ModbusEntityMixin, SensorEntity):
         # (usually high address, low address)
         addresses: list[int],
         round_to: float | None,
+        multiply_by: list[int] | None = None,
     ) -> None:
         """Initialize the sensor."""
 
         self._controller = controller
         self.entity_description = entity_description
         self._addresses = addresses
+        self._multiply_by = multiply_by
         self._round_to = round_to
         self._moving_average_filter: deque[float] | None = deque(maxlen=6) if round_to is not None else None
         self.entity_id = self._get_entity_id(Platform.SENSOR)
@@ -103,6 +120,12 @@ class ModbusSensor(ModbusEntityMixin, SensorEntity):
             return None
 
         value: float | int = original
+
+        if self._multiply_by is not None:
+            multiplier = self._controller.read(self._multiply_by, signed=True)
+            if multiplier is None:
+                return None
+            value = value * multiplier * entity_description.multiply_scale
 
         if entity_description.scale is not None:
             value = value * entity_description.scale
@@ -178,4 +201,7 @@ class ModbusSensor(ModbusEntityMixin, SensorEntity):
 
     @property
     def addresses(self) -> list[int]:
-        return self._addresses
+        # Both sets have to be polled, or the multiplier never arrives
+        if self._multiply_by is None:
+            return self._addresses
+        return [*self._addresses, *self._multiply_by]

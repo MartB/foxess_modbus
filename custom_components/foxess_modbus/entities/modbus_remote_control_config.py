@@ -50,6 +50,11 @@ class ModbusRemoteControlAddressConfig:
     pv_voltages: list[int]
     """Array of pvx_voltage addresses for PV strings"""
 
+    invbatpower_multiply_by: list[int] | None = None
+    """A second value to multiply invbatpower by, where the inverter doesn't report the power itself"""
+    invbatpower_multiply_scale: float = 1.0
+    """Scales the product of the two, to watts"""
+
 
 def _cluster_capacity(controller: EntityController) -> int:
     """Max force charge/discharge power (W) to allow: the whole cluster's capacity, or just this inverter's"""
