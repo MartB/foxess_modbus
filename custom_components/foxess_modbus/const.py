@@ -33,6 +33,9 @@ ATTR_ENTRY_TYPE = "entry_type"
 # entity ID prefix, the unique ID prefix retains the old invalid value while the entity ID prefix is fixed. For new
 # configs, it should be the same as the entity ID prefix.
 ENTITY_ID_PREFIX = "entity_id_prefix"
+# Set at runtime, once the inverter's device registry entry exists, so that the devices underneath it
+# can say which device they hang off. Home Assistant wants that as a registry id, not an identifier
+INVERTER_DEVICE_ID = "inverter_device_id"
 UNIQUE_ID_PREFIX = "unique_id_prefix"
 FRIENDLY_NAME = "friendly_name"
 MODBUS_SLAVE = "modbus_slave"

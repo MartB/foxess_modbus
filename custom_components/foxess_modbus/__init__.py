@@ -30,6 +30,7 @@ from .const import ENTITY_ID_PREFIX
 from .const import FRIENDLY_NAME
 from .const import HOST
 from .const import INVERTER_CONN
+from .const import INVERTER_DEVICE_ID
 from .const import INVERTERS
 from .const import MAX_READ
 from .const import MODBUS_SLAVE
@@ -289,7 +290,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # relying on the order their entities happen to be added in.
     registry = device_registry.async_get(hass)
     for controller in controllers:
-        registry.async_get_or_create(config_entry_id=entry.entry_id, **device_info(controller.inverter_details))
+        inverter_device = registry.async_get_or_create(
+            config_entry_id=entry.entry_id, **device_info(controller.inverter_details)
+        )
+        controller.inverter_details[INVERTER_DEVICE_ID] = inverter_device.id
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

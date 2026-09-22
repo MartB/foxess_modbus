@@ -25,6 +25,7 @@ from custom_components.foxess_modbus.const import ENTITY_ID_PREFIX
 from custom_components.foxess_modbus.const import FRIENDLY_NAME
 from custom_components.foxess_modbus.const import INVERTER_BASE
 from custom_components.foxess_modbus.const import INVERTER_CONN
+from custom_components.foxess_modbus.const import INVERTER_DEVICE_ID
 from custom_components.foxess_modbus.const import INVERTER_MODEL
 from custom_components.foxess_modbus.const import INVERTER_VERSION
 from custom_components.foxess_modbus.const import UNIQUE_ID_PREFIX
@@ -145,14 +146,21 @@ def test_sub_devices_hang_off_the_inverter() -> None:
         FRIENDLY_NAME: "Garage",
         INVERTER_MODEL: InverterModel.H3,
         INVERTER_CONN: ConnectionType.AUX,
+        # Home Assistant wants a registry id here, which setup fills in once the inverter's device exists
+        INVERTER_DEVICE_ID: "the-inverter-device",
     }
     inverter = device_info(inv_details)
     battery = device_info(inv_details, BATTERY)
     bms = device_info(inv_details, BMS[1])
 
-    assert battery["via_device"] == identifier(inverter)
-    assert bms["via_device"] == identifier(inverter)
+    assert battery["via_device_id"] == "the-inverter-device"
+    assert bms["via_device_id"] == "the-inverter-device"
     assert identifier(battery) == (*identifier(inverter), "battery")
+
+    # Before the inverter's device exists there is no id to point at, so the link is left off rather than
+    # the sub-device failing to register at all
+    del inv_details[INVERTER_DEVICE_ID]
+    assert "via_device_id" not in device_info(inv_details, BATTERY)
 
     # services/utils.py finds the inverter from a device by looking here, so a service call can target a
     # sub-device and still reach the right controller

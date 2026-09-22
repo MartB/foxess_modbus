@@ -20,6 +20,7 @@ from ..const import DOMAIN
 from ..const import ENTITY_ID_PREFIX
 from ..const import FRIENDLY_NAME
 from ..const import INVERTER_CONN
+from ..const import INVERTER_DEVICE_ID
 from ..const import INVERTER_MODEL
 from ..const import UNIQUE_ID_PREFIX
 from .base_validator import BaseValidator
@@ -80,13 +81,20 @@ def device_info(inv_details: dict[str, Any], device: SubDevice | None = None) ->
             manufacturer="FoxESS",
         )
 
-    parent = inverter_identifier + (device.parent.path if device.parent is not None else ())
-    return DeviceInfo(
+    # Home Assistant wants the device this one hangs off as a registry id rather than an identifier, and
+    # only has one once that device exists. The inverters are created before any entity is added, which is
+    # where this comes from. Hanging a sub-device off another one would need the same done for that one
+    assert device.parent is None, "a sub-device of a sub-device would need that one's registry id"
+
+    info = DeviceInfo(
         identifiers={inverter_identifier + device.path},  # type: ignore[arg-type]
         name=_name(f"FoxESS - {device.name}"),
         manufacturer="FoxESS",
-        via_device=parent,  # type: ignore[typeddict-unknown-key]
     )
+    inverter_device_id = inv_details.get(INVERTER_DEVICE_ID)
+    if inverter_device_id is not None:
+        info["via_device_id"] = inverter_device_id
+    return info
 
 
 def _create_unique_id(key: str, inv_details: dict[str, Any]) -> str:
