@@ -227,6 +227,70 @@ H3_PRO_KH_133_FAULTS = FaultSet(
 )
 
 
+# The 2024 H3 document names six BMS fault registers at 31117-31122, mirrored at 37626-37631 in the
+# 2025 one. Only the first three have published bit meanings; the decoder drops bits it has no name for,
+# so reading 4 to 6 as well would add registers without adding any signal.
+BMS_FAULTS = FaultSet(
+    faults=[
+        [
+            "BMS External Fault",
+            "BMS Internal Fault",
+            "Battery Over-voltage",
+            "Battery under-voltage",
+            "BMS Charge Over-current",
+            "BMS Discharge Over-current",
+            "BMS Over-temperature",
+            "BMS Under-temperature",
+            "BMS Cell Imbalance",
+            "BMS Hardware Protection Fault",
+            "BMS Circuit Fault",
+            None,
+            "BMS Voltage Sensor Fault",
+            "BMS Temperature Sensor Fault",
+            "BMS Current Sensor Fault",
+            "BMS Relay Fault",
+        ],
+        [
+            "BMS Type Mismatch",
+            "BMS Version Mismatch",
+            "BMS Manufacturer Mismatch",
+            "BMS Software/Hardware Mismatch",
+            "BMS Master/Slave Mismatch",
+            "BMS Charge Request Not Acknowledged",
+            "BMS Supply Fault",
+            None,
+            "BMS Self Check Fault",
+            "BMS Cell Temperature Difference Fault",
+            "BMS Cell Voltage Break Line Fault",
+            "BMS Self Check Voltage Mismatch Fault",
+            "BMS Precharge Fault",
+            "BMS Self Check HVB Fault",
+            "BMS Self Check Pack Current Fault",
+            "BMS Self Check Sys Mismatch Fault",
+        ],
+        [
+            "BMS Relay Fault",
+            "BMS SOH Too Low",
+            "BMS Charge Power Overload",
+            "BMS Discharge Power Overload",
+            "BMS Permanent Undervoltage",
+            "BMS Permanent Overvoltage",
+            "BMS Max Cell Temperature Exceeded",
+            "BMS Balance Temperature Too High",
+            "BMS Pre-charge Resistor Temp. Exceeded",
+            "BMS Hardware Overcurrent",
+            None,
+            None,
+            None,
+            "BMS BMU Version 1.0 Fault",
+            "BMS Module Addressing Fault",
+            None,
+        ],
+    ],
+    masks={},
+)
+
+
 @dataclass(kw_only=True, **ENTITY_DESCRIPTION_KWARGS)
 class ModbusFaultSensorDescription(SensorEntityDescription, EntityFactory):  # type: ignore[misc]
     """Description for ModbusFaultSensor"""

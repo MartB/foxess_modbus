@@ -48,6 +48,7 @@
   "bms_discharge_current_max": "battery",
   "bms_discharge_rate": "battery",
   "bms_discharge_voltage_min": "battery",
+  "bms_fault_code": "battery",
   "bms_kwh_remaining": "battery",
   "bms_kwh_remaining_1": "bms/1",
   "bms_kwh_remaining_2": "bms/2",

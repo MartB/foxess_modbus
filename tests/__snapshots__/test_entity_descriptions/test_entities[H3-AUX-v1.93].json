@@ -331,6 +331,72 @@
   },
   {
     "addresses": [
+      31117,
+      31118,
+      31119
+    ],
+    "faults": [
+      [
+        "BMS External Fault",
+        "BMS Internal Fault",
+        "Battery Over-voltage",
+        "Battery under-voltage",
+        "BMS Charge Over-current",
+        "BMS Discharge Over-current",
+        "BMS Over-temperature",
+        "BMS Under-temperature",
+        "BMS Cell Imbalance",
+        "BMS Hardware Protection Fault",
+        "BMS Circuit Fault",
+        null,
+        "BMS Voltage Sensor Fault",
+        "BMS Temperature Sensor Fault",
+        "BMS Current Sensor Fault",
+        "BMS Relay Fault"
+      ],
+      [
+        "BMS Type Mismatch",
+        "BMS Version Mismatch",
+        "BMS Manufacturer Mismatch",
+        "BMS Software/Hardware Mismatch",
+        "BMS Master/Slave Mismatch",
+        "BMS Charge Request Not Acknowledged",
+        "BMS Supply Fault",
+        null,
+        "BMS Self Check Fault",
+        "BMS Cell Temperature Difference Fault",
+        "BMS Cell Voltage Break Line Fault",
+        "BMS Self Check Voltage Mismatch Fault",
+        "BMS Precharge Fault",
+        "BMS Self Check HVB Fault",
+        "BMS Self Check Pack Current Fault",
+        "BMS Self Check Sys Mismatch Fault"
+      ],
+      [
+        "BMS Relay Fault",
+        "BMS SOH Too Low",
+        "BMS Charge Power Overload",
+        "BMS Discharge Power Overload",
+        "BMS Permanent Undervoltage",
+        "BMS Permanent Overvoltage",
+        "BMS Max Cell Temperature Exceeded",
+        "BMS Balance Temperature Too High",
+        "BMS Pre-charge Resistor Temp. Exceeded",
+        "BMS Hardware Overcurrent",
+        null,
+        null,
+        null,
+        "BMS BMU Version 1.0 Fault",
+        "BMS Module Addressing Fault",
+        null
+      ]
+    ],
+    "key": "bms_fault_code",
+    "name": "BMS Fault Code",
+    "type": "fault-sensor"
+  },
+  {
+    "addresses": [
       31123
     ],
     "key": "bms_kwh_remaining",

@@ -27,6 +27,7 @@ from .inverter_model_spec import ModbusAddressesSpec
 from .inverter_model_spec import ModbusAddressSpec
 from .modbus_battery_sensor import ModbusBatterySensorDescription
 from .modbus_clock_drift_sensor import ModbusClockDriftSensorDescription
+from .modbus_fault_sensor import BMS_FAULTS
 from .modbus_fault_sensor import H3_PRO_KH_133_FAULTS
 from .modbus_fault_sensor import STANDARD_FAULTS
 from .modbus_fault_sensor import FaultSet
@@ -3112,6 +3113,17 @@ def _bms_entities() -> Iterable[EntityFactory]:
         )
 
     yield from on_device(BATTERY, _bms_limits())
+
+    # The BMS reports its own faults, separately from the inverter's. 31117-31119 are already inside a
+    # range which gets read anyway, so these cost nothing to poll.
+    assign_device("bms_fault_code", BATTERY)
+    yield ModbusFaultSensorDescription(
+        key="bms_fault_code",
+        addresses=[ModbusAddressesSpec(holding=[31117, 31118, 31119], models=Inv.H3_SET)],
+        fault_set=BMS_FAULTS,
+        name="BMS Fault Code",
+        icon="mdi:alert-circle-outline",
+    )
 
 
 def _configuration_entities() -> Iterable[EntityFactory]:
