@@ -19,8 +19,6 @@ jobs:
           name: ${{ github.ref_name }}
           tag: ${{ github.ref_name }}
           version: ${{ github.ref_name }}
-          # Otherwise it leaves a draft, which HACS can't see and only a human can publish
-          publish: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v6.0.3
@@ -31,7 +29,15 @@ jobs:
           jq ".version=\"${TAG#v}\"" manifest.json > manifest.json.tmp
           mv manifest.json.tmp manifest.json
           zip ../../foxess_modbus.zip -r ./
+      # The asset goes on while the release is still a draft. A published release is immutable, so
+      # attaching anything to one afterwards is refused, and release-drafter publishing it itself would
+      # leave nothing for this to attach to
       - name: Upload release asset
         run: gh release upload "${{ github.ref_name }}" foxess_modbus.zip --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Only now, so that HACS sees a release which already has its zip
+      - name: Publish the release
+        run: gh release edit "${{ github.ref_name }}" --draft=false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
