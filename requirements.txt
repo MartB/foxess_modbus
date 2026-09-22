@@ -6,12 +6,9 @@ psutil-home-assistant  # Not sure why this is needed?
 fnv_hash_fast  # Or this?
 pytest-asyncio
 
-# For pytest. Keep in sync with manifest.json and https://github.com/home-assistant/core/blob/master/requirements_all.txt.
-pyserial==3.5
-
-# pymodbus is no longer vendored, so it has to come from somewhere. Needs >= 3.11 for
-# pymodbus.constants.ExcCodes and pymodbus.pdu.register_message.
-pymodbus==3.15.0
+# For pytest. Keep in sync with the requirement in manifest.json. The tmodbus extra brings tmodbus and
+# serialx; Home Assistant ships this itself from 2026.9.0, so the range is what core pins, not a hard pin.
+modbus-connection[tmodbus]>=4.10,<5
 
 # Tooling
 colorlog==6.10.1

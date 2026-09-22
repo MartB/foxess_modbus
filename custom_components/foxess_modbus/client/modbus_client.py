@@ -1,25 +1,24 @@
 """The client used to talk Modbus"""
 
-import asyncio
 import logging
-import os
 from typing import Any
+from typing import Awaitable
 from typing import Callable
-from typing import Type
 from typing import TypeVar
 
-import serial
 from homeassistant.core import HomeAssistant
-from pymodbus.client import ModbusSerialClient
-from pymodbus.client import ModbusUdpClient
-from pymodbus.exceptions import ConnectionException
-from pymodbus.pdu import ModbusPDU
-from pymodbus.pdu.register_message import ReadHoldingRegistersResponse
-from pymodbus.pdu.register_message import ReadInputRegistersResponse
-from pymodbus.pdu.register_message import WriteMultipleRegistersResponse
-from pymodbus.pdu.register_message import WriteSingleRegisterResponse
+from modbus_connection import ModbusSerialParams
+from modbus_connection import ModbusTcpParams
+from modbus_connection import ModbusUdpParams
+from modbus_connection import ModbusUnit
+from modbus_connection.exceptions import ClientClosedError
+from modbus_connection.exceptions import ModbusConnectionError
+from modbus_connection.exceptions import ModbusDesyncError
+from modbus_connection.exceptions import ModbusError
+from modbus_connection.exceptions import ModbusProtocolError
+from modbus_connection.exceptions import ModbusTimeoutError
+from modbus_connection.tmodbus import ModbusConnection
 
-from .. import client
 from ..common.types import ConnectionType
 from ..common.types import RegisterType
 from ..const import RTU_OVER_TCP
@@ -27,35 +26,47 @@ from ..const import SERIAL
 from ..const import TCP
 from ..const import UDP
 from ..inverter_adapters import InverterAdapter
-from .custom_modbus_tcp_client import CustomModbusTcpClient
 
 _LOGGER = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+# Some serial devices need a short delay between requests. Also do this for the inverter, just in case it
+# helps. tcp and rtu-over-tcp get it too: some cheap RS485<->TCP bridges can't keep up with back-to-back
+# requests, and answer the next request with the previous one's data. Raise this if one still does
+_MESSAGE_SPACING_SECONDS = 30 / 1000
 
-_CLIENTS: dict[str, dict[str, Any]] = {
-    SERIAL: {
-        "client": ModbusSerialClient,
-        "framer": "rtu",
-    },
-    TCP: {
-        "client": CustomModbusTcpClient,
-        "framer": "socket",
-    },
-    UDP: {
-        "client": ModbusUdpClient,
-        "framer": "socket",
-    },
-    RTU_OVER_TCP: {
-        "client": CustomModbusTcpClient,
-        "framer": "rtu",
-    },
-}
+# Delaying for a second after establishing a connection seems to help the inverter stability,
+# see https://github.com/nathanmarlor/foxess_modbus/discussions/132
+_CONNECT_DELAY_SECONDS = 1.0
 
+# The library reraises rather than retrying, so transient failures are retried here instead
 _NUM_RETRIES = 3
 
-serial.protocol_handler_packages.append(client.__name__)
+_MULTIPLE_CONNECTIONS_ADVICE = (
+    "Please ensure that your adapter is correctly configured to allow multiple connections, see the "
+    "instructions at https://github.com/nathanmarlor/foxess_modbus/wiki"
+)
+
+
+def _connection_params(
+    protocol: str, config: dict[str, Any]
+) -> ModbusTcpParams | ModbusUdpParams | ModbusSerialParams:
+    """Describe this connection the way modbus_connection expects it"""
+    if protocol == TCP:
+        return ModbusTcpParams(host=config["host"], port=config["port"])
+    if protocol == UDP:
+        return ModbusUdpParams(host=config["host"], port=config["port"])
+    if protocol == RTU_OVER_TCP:
+        # RTU framing carried over a socket is a serial line which happens to be delivered by TCP, and
+        # that is how modbus_connection models it. An IPv6 literal has to be bracketed, or the address's
+        # own colons read as the port separator
+        host = config["host"]
+        address = f"[{host}]" if ":" in host else host
+        return ModbusSerialParams(device=f"socket://{address}:{config['port']}", framer="rtu")
+    if protocol == SERIAL:
+        return ModbusSerialParams(device=config["port"], baudrate=config["baudrate"], framer="rtu")
+    raise AssertionError()
 
 
 class ModbusClient:
@@ -65,69 +76,66 @@ class ModbusClient:
         """Init"""
         self._hass = hass
         self._config = config
-        self._lock = asyncio.Lock()
         self._protocol = protocol
 
-        client = _CLIENTS[protocol]
-
-        config = {
-            **config,
-            "framer": client["framer"],
-            "retries": _NUM_RETRIES,
-            # See https://github.com/nathanmarlor/foxess_modbus/discussions/792
-            # "retry_on_empty": True, removed in later pymodbus versions
-        }
-
-        # Only add delay_on_connect for clients that support it
-        if client["client"] in (CustomModbusTcpClient,):
-            # Delaying for a second after establishing a connection seems to help the inverter stability,
-            # see https://github.com/nathanmarlor/foxess_modbus/discussions/132
-            config["delay_on_connect"] = 1 if adapter.connection_type == ConnectionType.LAN else None
-
-        # If our custom PosixPollSerial hack is supported, use that. This uses poll rather than select, which means we
-        # don't break when there are more than 1024 fds. See #457.
-        # Only supported on posix, see https://github.com/pyserial/pyserial/blob/7aeea35429d15f3eefed10bbb659674638903e3a/serial/__init__.py#L31
-        # This ties into the call to serial.protocol_handler_packages.append above, and means that pyserial will find
-        # our protocol_pollserial module, and the Serial class inside, when we use the prefix pollserial://
-        if protocol == SERIAL and os.name == "posix":
-            config["port"] = f"pollserial://{config['port']}"
-
-        # Some serial devices need a short delay after polling. Also do this for the inverter, just
-        # in case it helps.
-        # tcp and rtu-over-tcp get it too: some cheap RS485<->TCP bridges can't keep up with back-to-back
-        # requests, and answer the next request with the previous one's data. Raise this if one still does
-        poll_delay_seconds = 30 / 1000
         is_delayed = protocol in (SERIAL, TCP, RTU_OVER_TCP) or adapter.connection_type == ConnectionType.LAN
-        self._poll_delay = poll_delay_seconds if is_delayed else 0
+        is_lan_socket = protocol in (TCP, RTU_OVER_TCP) and adapter.connection_type == ConnectionType.LAN
 
-        self._client = client["client"](**config)
+        self._connection = ModbusConnection(
+            _connection_params(protocol, config),
+            message_spacing=_MESSAGE_SPACING_SECONDS if is_delayed else None,
+            connect_delay=_CONNECT_DELAY_SECONDS if is_lan_socket else None,
+        )
+        # One handle per slave. They are cheap, and all serialize behind the connection's own lock
+        self._units: dict[int, ModbusUnit] = {}
+
+    def _unit(self, slave: int) -> ModbusUnit:
+        unit = self._units.get(slave)
+        if unit is None:
+            unit = self._units[slave] = self._connection.for_unit(slave)
+        return unit
 
     async def close(self) -> None:
-        """Close connection"""
+        """Close the connection for good. Every later request on it fails"""
         _LOGGER.debug("Closing connection to modbus on %s", self)
-        await self._async_pymodbus_call(self._client.close, auto_connect=False)
+        await self._connection.close()
 
-    def _reset_framer_buffer(self) -> None:
-        """Best-effort clear of pymodbus's framer receive buffer.
+    async def _recycle(self) -> None:
+        """Drop the link, so that the next request opens a fresh one.
 
-        Leftover bytes in there survive a socket close, and would keep the stream one behind. The exact
-        attribute and method names vary between pymodbus versions, so try all the ones we know about.
+        `close()` is permanent, refusing everything which comes after it, so recovering from a bad link
+        has to use `disconnect()` instead.
         """
-        framer = getattr(self._client, "framer", None)
-        if framer is None:
-            return
-        reset = getattr(framer, "resetFrame", None) or getattr(framer, "reset_frame", None)
-        if callable(reset):
+        try:
+            await self._connection.disconnect()
+        except ModbusError:
+            _LOGGER.debug("Error dropping the connection to %s", self, exc_info=True)
+
+    async def _call(self, message: str, call: Callable[..., Awaitable[T]], *args: Any) -> T:
+        """Make a request, retrying the failures which a retry can do something about.
+
+        A timeout or a dropped link is worth another go. A device which answered with an exception has
+        made its mind up, so that one goes straight back to the caller.
+        """
+        for attempt in range(_NUM_RETRIES):
             try:
-                reset()
-            except Exception:
-                _LOGGER.debug("framer reset method raised on %s", self, exc_info=True)
-        for attr in ("_buffer", "databuffer", "_databuffer"):
-            if hasattr(framer, attr):
-                try:
-                    setattr(framer, attr, b"")
-                except Exception:
-                    _LOGGER.debug("failed clearing framer.%s on %s", attr, self, exc_info=True)
+                return await call(*args)
+            except ClientClosedError as ex:
+                # The connection was closed for good, so every later attempt fails the same way
+                raise ModbusClientFailedError(message, self, ex) from ex
+            except (ModbusTimeoutError, ModbusConnectionError) as ex:
+                if attempt == _NUM_RETRIES - 1:
+                    raise ModbusClientFailedError(message, self, ex) from ex
+                _LOGGER.debug("%s (attempt %s of %s): %s", message, attempt + 1, _NUM_RETRIES, ex)
+            except ModbusProtocolError as ex:
+                # The reply didn't match what was asked, which means the stream is out of step. Recycle
+                # the link, rather than leaving every later request reading the one before it's answer
+                _LOGGER.warning("%s. %s", message, _MULTIPLE_CONNECTIONS_ADVICE)
+                await self._recycle()
+                raise ModbusClientFailedError(message, self, ex) from ex
+            except ModbusError as ex:
+                raise ModbusClientFailedError(message, self, ex) from ex
+        raise AssertionError()
 
     async def read_registers(
         self,
@@ -137,143 +145,41 @@ class ModbusClient:
         slave: int,
     ) -> list[int]:
         """Read registers"""
-        expected_response_type: Type[Any]
+        unit = self._unit(slave)
+        description = f"Type: {register_type}; start: {start_address}; count: {num_registers}; slave: {slave}"
+
         if register_type == RegisterType.HOLDING:
-            response = await self._async_pymodbus_call(
-                self._client.read_holding_registers,
-                address=start_address,
-                count=num_registers,
-                device_id=slave,
-            )
-            expected_response_type = ReadHoldingRegistersResponse
+            read = unit.read_holding_registers
         elif register_type == RegisterType.INPUT:
-            response = await self._async_pymodbus_call(
-                self._client.read_input_registers,
-                address=start_address,
-                count=num_registers,
-                device_id=slave,
-            )
-            expected_response_type = ReadInputRegistersResponse
+            read = unit.read_input_registers
         else:
             raise AssertionError()
 
-        if response.isError():
-            message = (
-                f"Error reading registers. Type: {register_type}; start: {start_address}; count: {num_registers}; "
-                f"slave: {slave}"
-            )
-            if isinstance(response, Exception):
-                raise ModbusClientFailedError(message, self, response) from response
-            raise ModbusClientFailedError(message, self, response)
-
-        # We've seen cases where the remote device gets two requests at the same time and sends the wrong response to
-        # the wrong thing. pymodbus doesn't check whether the response type matches the request type
-        if not isinstance(response, expected_response_type):
-            message = (
-                f"Error reading registers. Type: {register_type}; start: {start_address}; count: {num_registers}; "
-                f"slave: {slave}. Received incorrect response type {response}. Please ensure that your adapter is "
-                "correctly configured to allow multiple connections, see the instructions at "
-                "https://github.com/nathanmarlor/foxess_modbus/wiki"
-            )
-            # ModbusController only logs this as debug. Make this a bit clearer so people spot and fix this
-            _LOGGER.warning(message)
-            raise ModbusClientFailedError(
-                message,
-                self,
-                response,
-            )
-
-        registers: list[int] = response.registers
+        registers = await self._call(f"Error reading registers. {description}", read, start_address, num_registers)
 
         # rtu_over_tcp has no length prefix, so a delayed or partial reply can desync the stream and leave
-        # pymodbus pairing responses with the wrong requests. Trusting the count then writes values to the
-        # wrong addresses, so treat a mismatch as a transient error and let the caller retry the read
+        # responses paired with the wrong requests. Trusting the count then writes values to the wrong
+        # addresses, so treat a mismatch as a transient error and let the caller retry the read
         if len(registers) != num_registers:
             message = (
-                f"Error reading registers. Type: {register_type}; start: {start_address}; "
-                f"count: {num_registers}; slave: {slave}. Expected {num_registers} registers but received "
+                f"Error reading registers. {description}. Expected {num_registers} registers but received "
                 f"{len(registers)}. This usually indicates a framing/desync issue on the connection."
             )
             _LOGGER.warning(message)
-            try:
-                await self.close()
-            except Exception:
-                _LOGGER.debug("Error closing connection after register-count mismatch", exc_info=True)
-            self._reset_framer_buffer()
-            raise ModbusClientFailedError(message, self, response)
+            await self._recycle()
+            raise ModbusClientFailedError(message, self, ModbusDesyncError(message))
 
         return registers
 
     async def write_registers(self, register_address: int, register_values: list[int], slave: int) -> None:
         """Write registers"""
-        expected_response_type: Type[Any]
+        unit = self._unit(slave)
+        message = f"Error writing registers. Start: {register_address}; values: {register_values}; slave: {slave}"
+
         if len(register_values) > 1:
-            response = await self._async_pymodbus_call(
-                self._client.write_registers,
-                register_address,
-                values=[int(v) for v in register_values],
-                device_id=slave,
-            )
-            expected_response_type = WriteMultipleRegistersResponse
+            await self._call(message, unit.write_registers, register_address, [int(v) for v in register_values])
         else:
-            response = await self._async_pymodbus_call(
-                self._client.write_register,
-                register_address,
-                value=int(register_values[0]),
-                device_id=slave,
-            )
-            expected_response_type = WriteSingleRegisterResponse
-
-        if response.isError():
-            message = f"Error writing registers. Start: {register_address}; values: {register_values}; slave: {slave}"
-            if isinstance(response, Exception):
-                raise ModbusClientFailedError(message, self, response) from response
-            raise ModbusClientFailedError(message, self, response)
-
-        # We've seen cases where the remote device gets two requests at the same time and sends the wrong response to
-        # the wrong thing. pymodbus doesn't check whether the response type matches the request type
-        if not isinstance(response, expected_response_type):
-            message = (
-                f"Error writing registers. Start: {register_address}; values: {register_values}; slave: {slave}. "
-                f"Received incorrect response type {response}. Please ensure that your adapter is correctly "
-                "configured to allow multiple connections, see the instructions at "
-                "https://github.com/nathanmarlor/foxess_modbus/wiki"
-            )
-            raise ModbusClientFailedError(
-                message,
-                self,
-                response,
-            )
-
-    async def _async_pymodbus_call(
-        self, call: Callable[..., T], *args: Any, auto_connect: bool = True, **kwargs: Any
-    ) -> T:
-        """Convert async to sync pymodbus call."""
-
-        def _call() -> T:
-            # When using pollserial://, connected calls into serial.serial_for_url, which calls importlib.import_module,
-            # which HA doesn't like (see https://github.com/nathanmarlor/foxess_modbus/issues/618).
-            # Therefore we need to do this check inside the executor job
-            if auto_connect and not self._client.connected:
-                self._client.connect()
-            # If the connection failed, this call will throw an appropriate error
-            try:
-                return call(*args, **kwargs)
-            except (ConnectionException, OSError):
-                # Null the socket, so that the next call reconnects rather than reusing a dead one
-                try:
-                    self._client.close()
-                except Exception:
-                    _LOGGER.debug("Error closing connection to %s after failure", self, exc_info=True)
-                raise
-
-        async with self._lock:
-            result = await self._hass.async_add_executor_job(_call)
-            # This seems to be required for serial devices, otherwise subsequent reads fail
-            # The HA modbus integration does the same
-            if self._poll_delay > 0:
-                await asyncio.sleep(self._poll_delay)
-            return result
+            await self._call(message, unit.write_register, register_address, int(register_values[0]))
 
     def __str__(self) -> str:
         if self._protocol == SERIAL:
@@ -284,7 +190,7 @@ class ModbusClient:
 class ModbusClientFailedError(Exception):
     """Raised when the ModbusClient fails to read/write"""
 
-    def __init__(self, message: str, client: ModbusClient, response: ModbusPDU | Exception) -> None:
+    def __init__(self, message: str, client: ModbusClient, response: ModbusError) -> None:
         super().__init__(f"{message} from {client}: {response}")
         self.message = message
         self.client = client

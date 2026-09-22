@@ -16,9 +16,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.issue_registry import IssueSeverity
-from pymodbus.constants import ExcCodes
-from pymodbus.exceptions import ConnectionException
-from pymodbus.pdu import ExceptionResponse
+from modbus_connection.exceptions import IllegalDataAddressError
+from modbus_connection.exceptions import ModbusConnectionError
 
 from .client.modbus_client import ModbusClient
 from .client.modbus_client import ModbusClientFailedError
@@ -251,7 +250,7 @@ class ModbusController(EntityController, UnloadController):
                 value = int(value)  # Ensure that we've been given an int
                 if not (_INT16_MIN <= value <= _UINT16_MAX):
                     raise ValueError(f"Value {value} must be between {_INT16_MIN} and {_UINT16_MAX}")
-                # pymodbus doesn't like negative values
+                # Registers go on the wire unsigned
                 if value < 0:
                     value = _UINT16_MAX + value + 1
                 values[i] = value
@@ -312,7 +311,7 @@ class ModbusController(EntityController, UnloadController):
                     changed_addresses,
                 )
                 self._notify_update(changed_addresses)
-            except ConnectionException as ex:
+            except ModbusConnectionError as ex:
                 exception = ex
                 _LOGGER.debug(
                     "Failed to connect to %s %s: %s",
@@ -489,7 +488,7 @@ class ModbusController(EntityController, UnloadController):
     # List of (start address, [read values starting at that address])
     async def _read_all_registers(self) -> list[tuple[int, Iterable[int | None]]]:
         def _is_illegal_address(ex: ModbusClientFailedError) -> bool:
-            return isinstance(ex.response, ExceptionResponse) and ex.response.exception_code == ExcCodes.ILLEGAL_ADDRESS
+            return isinstance(ex.response, IllegalDataAddressError)
 
         read_values: list[tuple[int, Iterable[int | None]]] = []
 
@@ -615,13 +614,14 @@ class ModbusController(EntityController, UnloadController):
 
         :returns: Tuple of (inverter type name e.g. "H1", inverter full name e.g. "H1-3.7-E")
         """
-        # Annoyingly pymodbus logs the important stuff to its logger, and doesn't add that info to the exceptions it
-        # throws
+        # Annoyingly the modbus libraries log the important stuff to their own loggers, and don't add that info to
+        # the exceptions they throw
         spy_handler = _SpyHandler()
-        pymodbus_logger = logging.getLogger("pymodbus")
+        modbus_loggers = [logging.getLogger("tmodbus"), logging.getLogger("modbus_connection")]
 
         try:
-            pymodbus_logger.addHandler(spy_handler)
+            for modbus_logger in modbus_loggers:
+                modbus_logger.addHandler(spy_handler)
 
             # All known inverter types expose the model number at holding register 30000 onwards.
             # (The H1 series additionally expose some model info in input registers))
@@ -676,7 +676,8 @@ class ModbusController(EntityController, UnloadController):
             _LOGGER.exception("Autodetect: failed to connect to (%s)", client)
             raise AutoconnectFailedError(spy_handler.records) from ex
         finally:
-            pymodbus_logger.removeHandler(spy_handler)
+            for modbus_logger in modbus_loggers:
+                modbus_logger.removeHandler(spy_handler)
             await client.close()
 
 

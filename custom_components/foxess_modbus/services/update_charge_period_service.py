@@ -10,8 +10,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
-from pymodbus.exceptions import ModbusIOException
+from modbus_connection.exceptions import ModbusError
 
+from ..client.modbus_client import ModbusClientFailedError
 from ..const import DOMAIN
 from ..entities.modbus_charge_period_sensors import is_time_value_valid
 from ..entities.modbus_charge_period_sensors import parse_time_value
@@ -267,6 +268,6 @@ async def _set_charge_periods(controller: ModbusController, charge_periods: list
 
     try:
         await controller.write_registers(write_start_address, write_values)
-    except ModbusIOException as ex:
+    except (ModbusClientFailedError, ModbusError) as ex:
         _LOGGER.warning(ex, exc_info=True)
         raise HomeAssistantError() from ex

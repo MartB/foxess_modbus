@@ -7,8 +7,9 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import selector
-from pymodbus.exceptions import ConnectionException
-from pymodbus.exceptions import ModbusIOException
+from modbus_connection.exceptions import ModbusConnectionError
+from modbus_connection.exceptions import ModbusProtocolError
+from modbus_connection.exceptions import ModbusTimeoutError
 
 from ..client.modbus_client import ModbusClient
 from ..client.modbus_client import ModbusClientFailedError
@@ -308,8 +309,9 @@ class AdapterFlowSegment:
                     result = str(ex.__cause__)
                 return result
 
-            if isinstance(ex.__cause__, ConnectionException):
-                # Mainly TCP timeouts. The actual exception message dosen't contain anything interesting here
+            if isinstance(ex.__cause__, ModbusConnectionError):
+                # The link couldn't be established. The actual exception message dosen't contain anything
+                # interesting here
                 raise ValidationFailedError(
                     {
                         "base": (
@@ -321,8 +323,9 @@ class AdapterFlowSegment:
                     error_placeholders={"error_details": get_details(ex, False)},
                 ) from ex
 
-            if isinstance(ex.__cause__, ModbusIOException):
-                # This is for things like invalid frames. The exception message here can be useful
+            if isinstance(ex.__cause__, (ModbusProtocolError, ModbusTimeoutError)):
+                # The link is up but the far end isn't answering usefully: invalid frames, or nothing at all.
+                # The exception message here can be useful
                 raise ValidationFailedError(
                     {
                         "base": (
@@ -336,8 +339,7 @@ class AdapterFlowSegment:
 
             if isinstance(ex.__cause__, ModbusClientFailedError):
                 # This happens for things like UDP timeouts, inverter not connected to adapter, etc.
-                # Annoyingly everything *seems* to come through as a ModbusIOException, so we can't tell exactly
-                # what's going on. The error message here isn't useful to us. However, if it's got a __cause__ that can
+                # The error message here isn't useful to us. However, if it's got a __cause__ that can
                 # be interesting, and if it doesn't the .response is useful
                 client_failed_ex = ex.__cause__
                 detail_parts = [str(client_failed_ex.response)]
