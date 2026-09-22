@@ -343,6 +343,16 @@
   },
   {
     "addresses": [
+      37625
+    ],
+    "key": "bms_cycle_count",
+    "name": "BMS Cycle Count",
+    "scale": null,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       37616
     ],
     "key": "bms_discharge_current_max",
@@ -366,7 +376,7 @@
       37632
     ],
     "key": "bms_kwh_remaining_1",
-    "name": "BMS 1 kWh Remaining",
+    "name": "BMS 1 Full Charge Energy",
     "scale": 0.01,
     "signed": false,
     "type": "sensor"
@@ -376,7 +386,7 @@
       38330
     ],
     "key": "bms_kwh_remaining_2",
-    "name": "BMS 2 kWh Remaining",
+    "name": "BMS 2 Full Charge Energy",
     "scale": 0.01,
     "signed": false,
     "type": "sensor"

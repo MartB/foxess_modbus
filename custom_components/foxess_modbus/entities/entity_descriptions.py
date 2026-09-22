@@ -1901,6 +1901,9 @@ def _inverter_entities() -> Iterable[EntityFactory]:
         key="bms_cycle_count",
         addresses=[
             ModbusAddressesSpec(input=[11048], models=Inv.H1_G1 | Inv.KH_PRE119),
+            # Undocumented, but it sits directly after SOH in the BMS1 block and reads 458 on a battery
+            # which reports 91% SoH
+            ModbusAddressesSpec(holding=[37625], models=Inv.H3_PRO_SET | Inv.H3_SMART),
         ],
         bms_connect_state_address=BMS_CONNECT_STATE_ADDRESS,
         name="BMS Cycle Count",
@@ -2773,14 +2776,18 @@ def _bms_entities() -> Iterable[EntityFactory]:
             round_to=10,
             validate=[Min(0)],
         )
+        # Both specs call this "Remain Energy", but it doesn't track SoC: an H3 at 51% reports 13.19 kWh
+        # against a 14.4 kWh design and 91% SoH, which is the design energy scaled by SoH. It's what the
+        # battery holds when full, so it's a measurement rather than an energy total. The key is left alone
+        # to keep existing history.
         yield ModbusBatterySensorDescription(
             key=f"bms_kwh_remaining{key_suffix}",
             addresses=bms_kwh_remaining,
             bms_connect_state_address=bms_connect_state_address,
-            name=f"BMS{name_infix} kWh Remaining",
-            device_class=SensorDeviceClass.ENERGY,
-            state_class=SensorStateClass.TOTAL,
+            name=f"BMS{name_infix} Full Charge Energy",
+            state_class=SensorStateClass.MEASUREMENT,
             native_unit_of_measurement="kWh",
+            icon="mdi:battery-heart-variant",
             scale=0.01,
             signed=False,
             validate=[Min(0)],
@@ -2816,7 +2823,10 @@ def _bms_entities() -> Iterable[EntityFactory]:
             bms_connect_state_address=BMS_CONNECT_STATE_ADDRESS,
             batvolt=[
                 ModbusAddressesSpec(input=[11034], models=Inv.H1_G1 | Inv.KH_PRE119),
-                # H3 >= 1.93 reads these from the Pro BMS registers rather than the legacy 31034/31035 below
+                # H3 >= 1.93 reads these from the Pro BMS registers rather than the legacy 31034/31035
+                # below, except for voltage, which comes from the same block as the current so that the two
+                # are read in the same breath
+                ModbusAddressesSpec(holding=[39227], models=Inv.H3_193),
                 ModbusAddressesSpec(holding=[37609], models=Inv.H1_G2_144 | Inv.H3_193),
                 ModbusAddressesSpec(holding=[31034], models=Inv.H3_SET),
             ],
@@ -2925,6 +2935,27 @@ def _bms_entities() -> Iterable[EntityFactory]:
             bms_pwr_limit_discharge=[],
             bms_pwr_limit_charge=[],
         ),
+    )
+
+    # The inverter reports the battery current as a 32-bit value in mA, against the BMS's 0.1 A, and reads
+    # it in the same breath as the voltage above. It also signs it the way everything else here does -
+    # positive while discharging - where the BMS register it replaces is the other way round.
+    yield from on_device(
+        BATTERY,
+        [
+            ModbusBatterySensorDescription(
+                key="bat_current",
+                addresses=[ModbusAddressesSpec(holding=[39229, 39228], models=Inv.H3_193)],
+                bms_connect_state_address=BMS_CONNECT_STATE_ADDRESS,
+                name="Battery Current",
+                device_class=SensorDeviceClass.CURRENT,
+                state_class=SensorStateClass.MEASUREMENT,
+                native_unit_of_measurement="A",
+                scale=0.001,
+                round_to=0.01,
+                validate=[Range(-100, 100)],
+            )
+        ],
     )
 
     # The envelope the BMS is asking the inverter to stay inside. The 2025 spec leaves 37613-37616 out of

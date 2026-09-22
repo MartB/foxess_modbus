@@ -206,7 +206,7 @@
       31123
     ],
     "key": "bms_kwh_remaining",
-    "name": "BMS kWh Remaining",
+    "name": "BMS Full Charge Energy",
     "scale": 0.01,
     "signed": false,
     "type": "sensor"

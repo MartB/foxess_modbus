@@ -43,6 +43,17 @@
   },
   {
     "addresses": [
+      39229,
+      39228
+    ],
+    "key": "bat_current",
+    "name": "Battery Current",
+    "scale": 0.001,
+    "signed": true,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       31091
     ],
     "key": "battery_capacity",
@@ -221,7 +232,7 @@
   },
   {
     "addresses": [
-      37609
+      39227
     ],
     "key": "batvolt",
     "name": "Battery Voltage",
@@ -291,6 +302,16 @@
   },
   {
     "addresses": [
+      37625
+    ],
+    "key": "bms_cycle_count",
+    "name": "BMS Cycle Count",
+    "scale": null,
+    "signed": false,
+    "type": "sensor"
+  },
+  {
+    "addresses": [
       37616
     ],
     "key": "bms_discharge_current_max",
@@ -314,7 +335,7 @@
       31123
     ],
     "key": "bms_kwh_remaining",
-    "name": "BMS kWh Remaining",
+    "name": "BMS Full Charge Energy",
     "scale": 0.01,
     "signed": false,
     "type": "sensor"
