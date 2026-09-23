@@ -33,11 +33,11 @@
   },
   {
     "addresses": [
-      31035
+      37610
     ],
     "key": "bat_current",
     "name": "Battery Current",
-    "scale": 0.1,
+    "scale": -0.1,
     "signed": true,
     "type": "sensor"
   },
@@ -53,8 +53,8 @@
   },
   {
     "addresses": [
-      31034,
-      31035
+      37609,
+      37610
     ],
     "key": "battery_charge",
     "name": "Battery Charge",
@@ -136,8 +136,8 @@
   },
   {
     "addresses": [
-      31034,
-      31035
+      37609,
+      37610
     ],
     "key": "battery_discharge",
     "name": "Battery Discharge",
@@ -230,7 +230,7 @@
   },
   {
     "addresses": [
-      31034
+      37609
     ],
     "key": "batvolt",
     "name": "Battery Voltage",
@@ -1583,8 +1583,8 @@
   },
   {
     "addresses": [
-      31034,
-      31035
+      37609,
+      37610
     ],
     "key": "invbatpower",
     "name": "Inverter Battery Power",

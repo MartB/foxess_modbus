@@ -28,6 +28,7 @@ from custom_components.foxess_modbus.const import INVERTER_CONN
 from custom_components.foxess_modbus.const import INVERTER_DEVICE_ID
 from custom_components.foxess_modbus.const import INVERTER_MODEL
 from custom_components.foxess_modbus.const import INVERTER_VERSION
+from custom_components.foxess_modbus.const import ROUND_SENSOR_VALUES
 from custom_components.foxess_modbus.const import UNIQUE_ID_PREFIX
 from custom_components.foxess_modbus.entities.battery_modules import _ModuleVersionSensor
 from custom_components.foxess_modbus.entities.devices import BATTERY
@@ -38,6 +39,7 @@ from custom_components.foxess_modbus.entities.inverter_model_spec import ModbusA
 from custom_components.foxess_modbus.entities.modbus_clock_drift_sensor import ModbusClockDriftSensor
 from custom_components.foxess_modbus.entities.modbus_clock_drift_sensor import ModbusClockDriftSensorDescription
 from custom_components.foxess_modbus.entities.modbus_entity_mixin import device_info
+from custom_components.foxess_modbus.entities.modbus_sensor import ModbusSensor
 from custom_components.foxess_modbus.inverter_profiles import INVERTER_PROFILES
 from custom_components.foxess_modbus.inverter_profiles import Version
 from custom_components.foxess_modbus.inverter_profiles import create_entities
@@ -275,3 +277,35 @@ async def test_battery_module_version(hass: HomeAssistant, register: int, index:
     sensor = _ModuleVersionSensor(controller, index)
     assert sensor.native_value == expected
     assert sensor.addresses == [37033 + index - 1]
+
+
+@pytest.mark.parametrize(
+    ("version", "registers", "expected"),
+    [
+        # Before 1.93 the inverter's own reading, which counts discharging as positive
+        (Version(1, 80), {31035: 32}, 3.2),
+        # From 1.93 the BMS's, which counts charging as positive, so it is negated to read the same way
+        (None, {37610: -32}, 3.2),
+        (None, {37610: 45}, -4.5),
+    ],
+)
+async def test_battery_current_reads_alike_across_models(
+    hass: HomeAssistant, version: Version | None, registers: dict[int, int], expected: float
+) -> None:
+    """Positive means discharging whichever register the model reads it from"""
+
+    profile = INVERTER_PROFILES[InverterModel.H3].connection_types[ConnectionType.AUX]
+    inv = profile.get_inv_for_version(version)
+
+    controller = MagicMock()
+    controller.hass = hass
+    controller.inverter_details = {ENTITY_ID_PREFIX: "", UNIQUE_ID_PREFIX: "", ROUND_SENSOR_VALUES: False}
+    controller.read.side_effect = lambda addresses, **_kwargs: registers.get(addresses[0])
+
+    (factory,) = (e for e in ENTITIES if getattr(e, "key", None) == "bat_current")
+    sensor = factory.create_entity_if_supported(controller, inv, profile.register_type)
+
+    assert isinstance(sensor, ModbusSensor)
+    sensor.schedule_update_ha_state = MagicMock()  # type: ignore[method-assign]  # never added to hass
+    sensor.update_callback(set(sensor.addresses))
+    assert sensor.native_value == pytest.approx(expected)

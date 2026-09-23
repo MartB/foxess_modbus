@@ -4,6 +4,7 @@ import logging
 from collections import deque
 from dataclasses import dataclass
 from dataclasses import field
+from dataclasses import replace
 from datetime import date
 from datetime import datetime
 from decimal import Decimal
@@ -41,6 +42,9 @@ class ModbusSensorDescription(SensorEntityDescription, EntityFactory):  # type: 
     multiply_by: list[ModbusAddressesSpec] | None = None
     multiply_scale: float = 1.0
     scale: float | None = None
+    # Models whose register counts the other way round from the rest. The scale is negated for them, so
+    # that one entity reads alike across models while each reads its own register
+    negated_for: Inv | None = None
     round_to: float | None = None
     post_process: Callable[[float], float] | None = None
     validate: list[BaseValidator] = field(default_factory=list)
@@ -52,12 +56,18 @@ class ModbusSensorDescription(SensorEntityDescription, EntityFactory):  # type: 
     def entity_type(self) -> type[Entity]:
         return SensorEntity
 
+    def _for_model(self, inverter_model: Inv) -> "ModbusSensorDescription":
+        if self.negated_for is None or not inverter_model & self.negated_for or self.scale is None:
+            return self
+        return replace(self, scale=-self.scale, negated_for=None)
+
     def create_entity_if_supported(
         self,
         controller: EntityController,
         inverter_model: Inv,
         register_type: RegisterType,
     ) -> Entity | None:
+        description = self._for_model(inverter_model)
         addresses = self._addresses_for_inverter_model(self.addresses, inverter_model, register_type)
         round_to = self.round_to if controller.inverter_details.get(ROUND_SENSOR_VALUES, False) else None
         multiply_by = (
@@ -67,7 +77,7 @@ class ModbusSensorDescription(SensorEntityDescription, EntityFactory):  # type: 
         )
         if addresses is None:
             return None
-        return ModbusSensor(controller, self, addresses, round_to, multiply_by)
+        return ModbusSensor(controller, description, addresses, round_to, multiply_by)
 
     def serialize(self, inverter_model: Inv, register_type: RegisterType) -> dict[str, Any] | None:
         addresses = self._addresses_for_inverter_model(self.addresses, inverter_model, register_type)
@@ -83,7 +93,7 @@ class ModbusSensorDescription(SensorEntityDescription, EntityFactory):  # type: 
             "key": self.key,
             "name": self.name,
             "addresses": addresses,
-            "scale": self.scale,
+            "scale": self._for_model(inverter_model).scale,
             "signed": self.signed,
         }
 

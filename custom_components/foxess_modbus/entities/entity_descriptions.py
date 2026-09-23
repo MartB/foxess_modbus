@@ -1888,14 +1888,16 @@ def _inverter_entities() -> Iterable[EntityFactory]:
             ModbusAddressesSpec(holding=[39238, 39237], models=Inv.H3_PRO_SET | Inv.H3_SMART | Inv.EVO),
             # H3 1.93 reports a battery power which doesn't survive checking. A slave in a parallel system
             # leaves 39237/39238 at zero while its battery is plainly working, and on a master they run
-            # about 1.6x the drain its state of charge actually shows. The battery's own voltage and
-            # current do agree with that drain, so the power is taken from those. Wins on specificity over
-            # the two entries above, which this firmware also matches
-            ModbusAddressesSpec(holding=[31034], models=Inv.H3_193),
+            # about 1.6x the drain its state of charge actually shows. The power is taken from the BMS's
+            # own voltage and current instead, which do agree with it (the inverter's 31034/31035 pair
+            # reads toward discharge, see bat_current). Wins on specificity over the two entries above,
+            # which this firmware also matches
+            ModbusAddressesSpec(holding=[37609], models=Inv.H3_193),
         ],
-        multiply_by=[ModbusAddressesSpec(holding=[31035], models=Inv.H3_193)],
-        # Volts and amps are both tenths, so their product is hundredths of a watt
-        multiply_scale=0.01,
+        multiply_by=[ModbusAddressesSpec(holding=[37610], models=Inv.H3_193)],
+        # Volts and amps are both tenths, so their product is hundredths of a watt. Negative because the BMS
+        # counts charging current as positive, and this power is positive while discharging
+        multiply_scale=-0.01,
     )
 
     grid_phase_freq_address_map = {
@@ -2828,6 +2830,7 @@ def _bms_entities() -> Iterable[EntityFactory]:
         bms_kwh_remaining: list[ModbusAddressesSpec],
         bms_pwr_limit_charge: list[ModbusAddressesSpec],
         bms_pwr_limit_discharge: list[ModbusAddressesSpec],
+        bat_current_negated_for: Inv | None = None,
     ) -> Iterable[EntityFactory]:
         key_suffix = f"_{index}" if index is not None else ""
         name_infix = f" {index}" if index is not None else ""
@@ -2851,6 +2854,7 @@ def _bms_entities() -> Iterable[EntityFactory]:
             state_class=SensorStateClass.MEASUREMENT,
             native_unit_of_measurement="A",
             scale=0.1,
+            negated_for=bat_current_negated_for,
             round_to=1,
             validate=[Range(-100, 100)],
         )
@@ -2982,12 +2986,20 @@ def _bms_entities() -> Iterable[EntityFactory]:
                 ModbusAddressesSpec(input=[11034], models=Inv.H1_G1 | Inv.KH_PRE119),
                 ModbusAddressesSpec(holding=[37609], models=Inv.H1_G2_144),
                 ModbusAddressesSpec(holding=[31034], models=Inv.H3_SET),
+                # H3 1.93: the BMS's own reading. 31034 runs ~3 V low on a parallel slave
+                ModbusAddressesSpec(holding=[37609], models=Inv.H3_193),
             ],
             bat_current=[
                 ModbusAddressesSpec(input=[11035], models=Inv.H1_G1 | Inv.KH_PRE119),
                 ModbusAddressesSpec(holding=[37610], models=Inv.H1_G2_144),
                 ModbusAddressesSpec(holding=[31035], models=Inv.H3_SET),
+                # H3 1.93 takes the BMS's own current. The inverter's 31035 reads toward discharge by a
+                # steady 0.2 A on a master and 0.4 A on a parallel slave, which over a day comes to 1.4 and
+                # 3.9 kWh of discharge the pack's state of charge never showed. 37610 agrees with it, but
+                # counts charging as positive, so it is negated to read like every other model
+                ModbusAddressesSpec(holding=[37610], models=Inv.H3_193),
             ],
+            bat_current_negated_for=Inv.H3_193,
             battery_soc=[
                 ModbusAddressesSpec(input=[11036], models=Inv.H1_G1 | Inv.KH_PRE119),
                 ModbusAddressesSpec(
